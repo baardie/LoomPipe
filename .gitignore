@@ -1,0 +1,66 @@
+# ==========================================
+# LoomData Project GitIgnore
+# Target: .NET 10 Backend & React/Vite Frontend
+# ==========================================
+
+# --- .NET / C# Specifics ---
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- IDE Specifics (Visual Studio / VS Code) ---
+.vs/
+.vscode/
+.idea/
+*.swp
+*.lut
+*.swp
+
+# --- NuGet & Build Artifacts ---
+project.lock.json
+project.fragment.lock.json
+artifacts/
+publish/
+
+# --- React / Vite Frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.eslintcache
+.stylelintcache
+
+# --- Environment Secrets ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+appsettings.Development.json
+UserSecretsId
+.vs
+GEMINI.md
+
+# --- ETL / Data Specifics (LoomData) ---
+# Ignore local data files used for testing mapping logic
+*.csv
+*.xlsx
+*.xls
+*.json.bak
+*.log
+temp/
+exports/
+
+# --- OS Specifics ---
+.DS_Store
+Thumbs.db
+
+# --- Database (Local) ---
+*.db
+*.sqlite
+*.mdf
+*.ldf
