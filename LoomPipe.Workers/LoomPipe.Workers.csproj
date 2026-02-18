@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoomPipe.Services\LoomPipe.Services.csproj" />
+    <ProjectReference Include="..\LoomPipe.Connectors\LoomPipe.Connectors.csproj" />
+    <ProjectReference Include="..\LoomPipe.Core\LoomPipe.Core.csproj" />
+    <ProjectReference Include="..\LoomPipe.Engine\LoomPipe.Engine.csproj" />
+    <ProjectReference Include="..\LoomPipe.Storage\LoomPipe.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

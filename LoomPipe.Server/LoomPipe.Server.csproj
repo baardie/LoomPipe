@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoomPipe.Core\LoomPipe.Core.csproj" />
+    <ProjectReference Include="..\LoomPipe.Services\LoomPipe.Services.csproj" />
+    <ProjectReference Include="..\LoomPipe.Data\LoomPipe.Data.csproj" />
+    <ProjectReference Include="..\LoomPipe.Connectors\LoomPipe.Connectors.csproj" />
+    <ProjectReference Include="..\LoomPipe.Workers\LoomPipe.Workers.csproj" />
+    <ProjectReference Include="..\LoomPipe.Storage\LoomPipe.Storage.csproj" />
+    <ProjectReference Include="..\LoomPipe.Engine\LoomPipe.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

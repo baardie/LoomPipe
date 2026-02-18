@@ -64,3 +64,10 @@ Thumbs.db
 *.sqlite
 *.mdf
 *.ldf
+
+# --- ASP.NET Core Data Protection keys ---
+App_Data/
+
+# --- AI assistant config ---
+.claude/
+instructions.md

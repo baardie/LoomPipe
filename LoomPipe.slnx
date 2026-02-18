@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="loompipe.client/loompipe.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="LoomPipe.Connectors/LoomPipe.Connectors.csproj" />
+  <Project Path="LoomPipe.Core/LoomPipe.Core.csproj" />
+  <Project Path="LoomPipe.Data/LoomPipe.Data.csproj" />
+  <Project Path="LoomPipe.Server/LoomPipe.Server.csproj" />
+  <Project Path="LoomPipe.Services/LoomPipe.Services.csproj" />
+  <Project Path="LoomPipe.Workers/LoomPipe.Workers.csproj" />
+  <Project Path="tests/LoomPipe.Server.Tests/LoomPipe.Server.Tests.csproj" />
+</Solution>
