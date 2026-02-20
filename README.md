@@ -8,6 +8,7 @@
 ## Want help?
 I can integrate custom connectors, add new features and help you out! Send me an email at lukebaard@outlook.com.
 
+This is still a major work in progress, some things may be broken.
 ---
 
 
