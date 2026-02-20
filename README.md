@@ -10,6 +10,15 @@ I can integrate custom connectors, add new features and help you out! Send me an
 
 This is still a major work in progress, some things may be broken.
 
+todo:
+docker support
+email encryption 
+interval to use cron
+pagination/streaming on large datasets
+expand expression language
+connection tests
+
+
 ---
 
 
