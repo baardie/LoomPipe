@@ -5,6 +5,12 @@
 [![Tests](https://img.shields.io/badge/tests-23%20passing-brightgreen?logo=github)](#running-tests)
 [![Buy Me a Coffee](https://img.shields.io/badge/donate-PayPal-blue?logo=paypal)](https://www.paypal.com/paypalme/baardie)
 
+## Want help?
+I can integrate custom connectors, add new features and help you out! Send me an email at lukebaard@outlook.com.
+
+---
+
+
 **LoomPipe** is an open-source, self-hosted ETL (Extract, Transform, Load) platform with a web-based UI. Connect databases, APIs, files, and cloud data stores — then map, transform, and move data using an intuitive interface without writing code.
 
 ---
@@ -23,6 +29,9 @@
 | **User-to-connection permissions** | Admins assign specific connection profiles to individual users |
 | **Run history & analytics** | Per-pipeline run logs, duration, rows processed, error messages, and a cross-pipeline analytics dashboard |
 | **Live connection testing** | Test any connection profile on-demand from the UI |
+| **Dashboard & Live Monitor** | Real-time metric cards, visual pipeline canvas, live pipe monitor with auto-refresh, and source distribution chart |
+| **Email notifications** | SMTP-based alerts on pipeline success or failure — configurable per-event with a test-send button |
+| **File upload** | Upload CSV (up to 50 MB) or JSON (up to 100 MB) files directly through the UI as pipeline sources |
 
 ---
 
@@ -32,6 +41,7 @@
 | Connector | Type |
 |---|---|
 | CSV | File |
+| JSON | File / Inline |
 | REST API | HTTP |
 | SQL Server / PostgreSQL / MySQL / Oracle | Relational DB |
 | MongoDB | Document DB |
@@ -60,12 +70,12 @@ LoomPipe.Core           ← Entities, interfaces, DTOs (no external deps)
 LoomPipe.Engine         ← Pipeline orchestration, automap, transformations
 LoomPipe.Connectors     ← ISourceReader / IDestinationWriter implementations
 LoomPipe.Storage        ← EF Core repositories, DbContext, migrations
-LoomPipe.Services       ← Application services (connection profiles, etc.)
+LoomPipe.Services       ← Application services (connection profiles, email notifications)
 LoomPipe.Workers        ← Background scheduler (ConnectorWorker)
     ↑
 LoomPipe.Server         ← ASP.NET Core Web API, JWT auth, controllers
     ↑
-loompipe.client         ← React + MUI + Vite frontend
+loompipe.client         ← React + Vite frontend (Tailwind CSS)
 ```
 
 ### Tech Stack
@@ -76,10 +86,12 @@ loompipe.client         ← React + MUI + Vite frontend
 - JWT Bearer authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`)
 - BCrypt password hashing (`BCrypt.Net-Next`)
 - ASP.NET Core Data Protection (AES-256-CBC credential encryption)
+- SMTP email notifications (`System.Net.Mail`)
 
 **Frontend**
 - React 18 + Vite
-- Material UI (MUI) v6
+- Tailwind CSS
+- Lucide React icons
 
 ---
 
@@ -96,6 +108,7 @@ loompipe.client         ← React + MUI + Vite frontend
 | Manage users | ✓ | | |
 | Configure schedules & batch settings | ✓ | | |
 | Assign connection profiles to users | ✓ | | |
+| Configure email notifications | ✓ | | |
 
 ---
 
@@ -174,6 +187,53 @@ Transformations are defined one per line in the pipeline editor.
 
 ---
 
+## Dashboard
+
+The dashboard (`/`) provides a live overview of your LoomPipe instance:
+
+- **Metric cards** — Active Pipelines, Total Runs, Success Rate, and Pipeline Errors at a glance.
+- **Visual Loom Editor** — A canvas that renders your pipelines as source → destination node graphs with Bezier connector edges. Incomplete or misconfigured pipelines are shown with dashed amber edges.
+- **Live Pipe Monitor** — A table of your most recent pipelines showing current status, rows processed, and last-run time. Auto-refreshes every 15 seconds.
+- **Weave Distribution** — A bar chart breaking down your pipelines by source connector type.
+- **Run Summary** — Quick stats panel showing totals, average duration, and success rate.
+
+---
+
+## Email Notifications
+
+LoomPipe can send SMTP email alerts when pipelines succeed or fail. Configuration is Admin-only via **Settings → Email Notifications**.
+
+| Setting | Description |
+|---|---|
+| SMTP Host / Port | Your mail server address and port (e.g. `smtp.gmail.com`, `587`) |
+| SSL / TLS | Enable STARTTLS — recommended for ports 465 and 587 |
+| Username / Password | SMTP credentials — password is stored server-side and never returned to the browser |
+| From Address / Name | The sender displayed in the email |
+| Admin Notification Email | The recipient for all pipeline event emails |
+| Notify on failure | Send an alert when any pipeline run fails |
+| Notify on success | Send an alert when a pipeline run completes successfully |
+
+Use the **Send Test Email** button to verify your SMTP config without running a pipeline.
+
+Settings are persisted to `email-settings.json` in the server content root. Keep this file out of source control.
+
+---
+
+## JSON Source Connector
+
+The JSON connector supports two modes:
+
+| Mode | How it works |
+|---|---|
+| **Inline** | Paste raw JSON directly into the connection string field — ideal for small static datasets |
+| **File** | Provide a server-side file path to a `.json` file (use the **Upload JSON** button in the UI) |
+
+The root JSON value may be an array of objects `[{...},...]` or a single object `{...}` (treated as a one-record array). Nested objects and arrays are serialised to a JSON string for flat pipeline processing.
+
+Upload limit: **100 MB** per file.
+
+---
+
 ## Running Tests
 
 ```bash
@@ -201,22 +261,27 @@ LoomPipe/
 ├── LoomPipe.Core/
 │   ├── Entities/          # Pipeline, AppUser, PipelineRunLog, UserConnectionPermission, …
 │   ├── DTOs/              # Request/response DTOs
-│   └── Interfaces/        # ISourceReader, IDestinationWriter, repositories, …
+│   ├── Interfaces/        # ISourceReader, IDestinationWriter, IEmailNotificationService, repositories, …
+│   └── Settings/          # EmailSettings
 ├── LoomPipe.Engine/       # PipelineEngine, TransformationParser, AutomapHelper
-├── LoomPipe.Connectors/   # CSV, REST, SQL, MongoDB, Neo4j, Snowflake, BigQuery, Pinecone, Milvus, Webhook
+├── LoomPipe.Connectors/   # CSV, JSON, REST, SQL, MongoDB, Neo4j, Snowflake, BigQuery, Pinecone, Milvus, Webhook
 ├── LoomPipe.Storage/
 │   ├── LoomPipeDbContext.cs
 │   ├── Migrations/
 │   └── Repositories/
-├── LoomPipe.Services/     # ConnectionProfileService
+├── LoomPipe.Services/     # ConnectionProfileService, EmailNotificationService
 ├── LoomPipe.Workers/      # ConnectorWorker (background scheduler)
 ├── LoomPipe.Server/
-│   ├── Controllers/       # Pipelines, Connections, Auth, Users, Analytics
+│   ├── Controllers/       # Pipelines, Connections, Auth, Users, Analytics, AdminSettings, Csv, Json
 │   └── Program.cs
-├── loompipe.client/       # React + MUI frontend
+├── loompipe.client/       # React + Tailwind frontend
 │   └── src/
-│       ├── pages/         # PipelineDetailPage, ProfileDetailPage, UsersPage, AnalyticsPage, …
-│       ├── components/    # PipelineForm, PipelineList, ConnectionProfileDialog, …
+│       ├── pages/         # DashboardPage, PipelinesPage, PipelineDetailPage, ConnectionsPage,
+│       │                  # ProfileDetailPage, UsersPage, AnalyticsPage, SettingsPage, LoginPage
+│       ├── components/    # Sidebar, Topbar, ConfirmDialog, ErrorBoundary,
+│       │                  # PipelineForm, PipelineList, ConnectionProfileDialog,
+│       │                  # loom/ (LoomCanvas, LoomEditor, LoomPanel, LoomSettings),
+│       │                  # pipeline/ (DraggableFieldMapping, DryRunResultModal, …)
 │       └── contexts/      # AuthContext (JWT, authFetch, role helpers)
 └── tests/
     ├── LoomPipe.Engine.Tests/
@@ -233,6 +298,7 @@ LoomPipe/
 - **Connection secrets** (passwords, API keys, service account JSON) are encrypted with AES-256-CBC using ASP.NET Core Data Protection before being stored. Plaintext is never written to the database.
 - **API endpoints** are protected with JWT Bearer tokens. Role restrictions are enforced server-side — client-side role guards are UI-only.
 - **User-to-connection permissions** allow Admins to restrict which connection profiles each User-role account can see and use.
+- **SMTP password** is stored in `email-settings.json` on the server. The password is never returned to the browser — the API only indicates whether one has been set.
 
 ---
 
