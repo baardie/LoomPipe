@@ -42,7 +42,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to write to MongoDB. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to MongoDB: {ex.Message}", ex, "mongodb");
             }
         }
 

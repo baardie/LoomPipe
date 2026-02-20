@@ -15,5 +15,12 @@ namespace LoomPipe.Core.Interfaces
         Task<PipelineStatsDto> GetStatsAsync(int pipelineId);
         Task<AnalyticsSummaryDto> GetSummaryAsync(int totalPipelines);
         Task<IEnumerable<RunsByDayDto>> GetRunsByDayAsync(int days);
+
+        /// <summary>
+        /// Returns a dictionary keyed by pipeline ID containing the most recent
+        /// PipelineRunLog for each pipeline. Used to show last-run
+        /// status on the pipeline list page.
+        /// </summary>
+        Task<Dictionary<int, PipelineRunLog>> GetLatestRunPerPipelineAsync();
     }
 }

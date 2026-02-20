@@ -1,163 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, CircularProgress, Snackbar, Alert, LinearProgress
-} from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { useState, useEffect } from 'react';
+import { X, Loader2 } from 'lucide-react';
 import ConnectionProfileForm from './ConnectionProfileForm';
 import { useAuth } from '../../contexts/AuthContext';
 
-/**
- * Dialog for creating or editing a connection profile.
- *
- * Props:
- *   open          - boolean
- *   onClose()     - called when dialog closes
- *   onSaved(summary) - called after successful save
- *   profileId     - if set, load existing profile for editing
- */
-const ConnectionProfileDialog = ({ open, onClose, onSaved, profileId = null }) => {
+const HTTP_PROVIDERS = ['rest', 'webhook'];
+
+const EMPTY = {
+  provider: '', name: '', host: '', port: '', databaseName: '',
+  username: '', password: '', notes: '',
+  // HTTP-only auth fields (packed into additionalConfig before save)
+  authType: 'none', customHeaders: [],
+};
+
+/** Parse saved additionalConfig JSON and restore auth fields into form values. */
+const applyAdditionalConfig = (values, additionalConfigJson) => {
+  try {
+    const ac = JSON.parse(additionalConfigJson || '{}');
+    const headers = ac.headers && typeof ac.headers === 'object'
+      ? Object.entries(ac.headers).map(([key, value]) => ({ id: `${key}-${Math.random()}`, key, value: String(value) }))
+      : [];
+    return { ...values, authType: ac.authType ?? 'none', customHeaders: headers };
+  } catch {
+    return values;
+  }
+};
+
+/** Build the additionalConfig JSON string and strip UI-only fields from the payload. */
+const buildPayload = (values) => {
+  const isHttp = HTTP_PROVIDERS.includes(values.provider);
+  const { authType, customHeaders, ...rest } = values;
+
+  const headersObj = isHttp && customHeaders?.length
+    ? Object.fromEntries(customHeaders.filter(h => h.key.trim()).map(h => [h.key.trim(), h.value]))
+    : {};
+
+  const additionalConfig = isHttp
+    ? JSON.stringify({
+        authType: authType || 'none',
+        ...(Object.keys(headersObj).length > 0 ? { headers: headersObj } : {}),
+      })
+    : '{}';
+
+  return { ...rest, additionalConfig };
+};
+
+const ConnectionProfileDialog = ({ open, onClose, onSaved, profileId }) => {
   const { authFetch } = useAuth();
-  const isEditing = !!profileId;
+  const [values,  setValues]  = useState(EMPTY);
+  const [saving,  setSaving]  = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [error,   setError]   = useState('');
+  const [testMsg, setTestMsg] = useState('');
 
-  const emptyValues = {
-    name: '', provider: '', host: '', port: '', databaseName: '',
-    username: '', additionalConfig: '{}',
-    password: '', apiKey: '', serviceAccountJson: '',
-  };
-
-  const [values,     setValues]     = useState(emptyValues);
-  const [saving,     setSaving]     = useState(false);
-  const [testing,    setTesting]    = useState(false);
-  const [snack,      setSnack]      = useState({ open: false, message: '', severity: 'success' });
-
-  // Load existing profile when editing
   useEffect(() => {
-    if (open && isEditing) {
-      authFetch(`/api/connections/${profileId}`)
-        .then(r => r.json())
-        .then(data => setValues({
-          name:             data.name             || '',
-          provider:         data.provider         || '',
-          host:             data.host             || '',
-          port:             data.port             || '',
-          databaseName:     data.databaseName     || '',
-          username:         data.username         || '',
-          additionalConfig: data.additionalConfig || '{}',
-          // Secrets not returned by API — leave blank (null = keep existing on save)
-          password: '', apiKey: '', serviceAccountJson: '',
-        }));
-    } else if (open && !isEditing) {
-      setValues(emptyValues);
+    if (!open) { setValues(EMPTY); setError(''); setTestMsg(''); return; }
+    if (profileId) {
+      authFetch(`/api/connections/${profileId}`).then(r => r.ok ? r.json() : null).then(data => {
+        if (!data) return;
+        const base = {
+          provider: data.provider || '', name: data.name || '',
+          host: data.host || '', port: data.port || '',
+          databaseName: data.databaseName || '', username: data.username || '',
+          password: '', notes: data.notes || '',
+          authType: 'none', customHeaders: [],
+        };
+        setValues(applyAdditionalConfig(base, data.additionalConfig));
+      });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, profileId]);
-
-  const handleChange = (field, value) =>
-    setValues(prev => ({ ...prev, [field]: value }));
+  }, [open, profileId, authFetch]);
 
   const handleSave = async () => {
-    setSaving(true);
+    setError(''); setSaving(true);
     try {
-      const payload = {
-        name:             values.name,
-        provider:         values.provider,
-        host:             values.host,
-        port:             values.port ? Number(values.port) : null,
-        databaseName:     values.databaseName,
-        username:         values.username,
-        additionalConfig: values.additionalConfig,
-        // Only include secret fields if non-empty (null = keep existing)
-        password:           values.password           || null,
-        apiKey:             values.apiKey             || null,
-        serviceAccountJson: values.serviceAccountJson || null,
-      };
-
-      const url     = isEditing ? `/api/connections/${profileId}` : '/api/connections';
-      const method  = isEditing ? 'PUT' : 'POST';
-      const resp    = await authFetch(url, {
+      const url    = profileId ? `/api/connections/${profileId}` : '/api/connections';
+      const method = profileId ? 'PUT' : 'POST';
+      const resp   = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload(values)),
       });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || resp.statusText);
-      }
-
-      const saved = method === 'POST' ? await resp.json() : null;
-      setSnack({ open: true, message: 'Saved successfully.', severity: 'success' });
-      onSaved(saved);
-      onClose();
-    } catch (err) {
-      setSnack({ open: true, message: `Save failed: ${err.message}`, severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); setError(e.message || 'Save failed.'); return; }
+      onSaved();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
   };
 
   const handleTest = async () => {
-    if (!isEditing) {
-      setSnack({ open: true, message: 'Save the profile first, then test it.', severity: 'info' });
-      return;
-    }
-    setTesting(true);
+    setTestMsg(''); setTesting(true);
     try {
-      const resp = await authFetch(`/api/connections/${profileId}/test`, { method: 'POST' });
+      const url    = profileId ? `/api/connections/${profileId}/test` : '/api/connections/test';
+      const body   = profileId ? undefined : JSON.stringify(buildPayload(values));
+      const resp   = await authFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
       const result = await resp.json();
-      setSnack({
-        open: true,
-        message: result.success
-          ? `Connection successful (${result.elapsedMs}ms)`
-          : `Connection failed: ${result.errorMessage}`,
-        severity: result.success ? 'success' : 'error',
-      });
-    } catch (err) {
-      setSnack({ open: true, message: `Test error: ${err.message}`, severity: 'error' });
-    } finally {
-      setTesting(false);
-    }
+      setTestMsg(result.success ? `Connected (${result.elapsedMs}ms)` : `Failed: ${result.errorMessage}`);
+    } finally { setTesting(false); }
   };
 
-  return (
-    <>
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        {(saving || testing) && <LinearProgress />}
-        <DialogTitle>{isEditing ? 'Edit Connection Profile' : 'New Connection Profile'}</DialogTitle>
-        <DialogContent dividers>
-          <ConnectionProfileForm values={values} onChange={handleChange} />
-        </DialogContent>
-        <DialogActions>
-          {isEditing && (
-            <Button
-              onClick={handleTest}
-              disabled={testing}
-              startIcon={testing ? <CircularProgress size={16} /> : null}
-              color="info"
-            >
-              Test Connection
-            </Button>
-          )}
-          <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving}>
-            {saving ? <CircularProgress size={18} /> : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+  if (!open) return null;
 
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={5000}
-        onClose={() => setSnack(s => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snack.severity} onClose={() => setSnack(s => ({ ...s, open: false }))} variant="filled">
-          {snack.message}
-        </Alert>
-      </Snackbar>
-    </>
+  const busy = saving || testing;
+  const title = profileId ? 'Edit Connection' : 'New Connection';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl w-full max-w-md max-h-[90vh] flex flex-col relative">
+        {busy && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--accent)] animate-pulse rounded-t-xl" />}
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><X size={16} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <ConnectionProfileForm values={values} onChange={setValues} />
+          {error   && <p className="mt-3 text-xs text-[var(--red)]">{error}</p>}
+          {testMsg && <p className={`mt-3 text-xs ${testMsg.startsWith('Connected') ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{testMsg}</p>}
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-4 border-t border-[var(--border)]">
+          <button onClick={handleTest} disabled={busy} className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] rounded transition-colors disabled:opacity-50">
+            {testing && <Loader2 size={12} className="animate-spin" />} Test
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 text-xs border border-[var(--border)] text-[var(--text-secondary)] rounded hover:text-[var(--text-primary)]">Cancel</button>
+            <button onClick={handleSave} disabled={busy} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-white rounded disabled:opacity-60">
+              {saving && <Loader2 size={12} className="animate-spin" />} Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

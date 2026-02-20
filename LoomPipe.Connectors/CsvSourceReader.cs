@@ -38,7 +38,7 @@ namespace LoomPipe.Connectors
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to read CSV file from '{Path}'.", config.ConnectionString);
-                throw new ConnectorException($"Failed to read CSV file. See inner exception for details.", ex);
+                throw new ConnectorException($"Failed to read CSV file: {ex.Message}", ex, "csv");
             }
         }
 
@@ -54,7 +54,7 @@ namespace LoomPipe.Connectors
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to discover schema for CSV file at '{Path}'.", config.ConnectionString);
-                throw new ConnectorException($"Failed to discover schema for CSV file. See inner exception for details.", ex);
+                throw new ConnectorException($"Failed to discover schema for CSV file: {ex.Message}", ex, "csv");
             }
         }
 
@@ -70,7 +70,7 @@ namespace LoomPipe.Connectors
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Dry run failed for CSV file at '{Path}'.", config.ConnectionString);
-                throw new ConnectorException($"Dry run failed for CSV file. See inner exception for details.", ex);
+                throw new ConnectorException($"Dry run failed for CSV file: {ex.Message}", ex, "csv");
             }
         }
 

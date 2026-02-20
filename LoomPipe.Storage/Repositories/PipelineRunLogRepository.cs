@@ -105,5 +105,18 @@ namespace LoomPipe.Storage.Repositories
                 })
                 .ToList();
         }
+
+        public async Task<Dictionary<int, PipelineRunLog>> GetLatestRunPerPipelineAsync()
+        {
+            // For each pipeline, grab only the single most-recent log entry.
+            // Grouping in-memory keeps this simple; swap to a window-function query
+            // if the logs table grows very large.
+            var latestPerPipeline = await _db.PipelineRunLogs
+                .GroupBy(r => r.PipelineId)
+                .Select(g => g.OrderByDescending(r => r.StartedAt).First())
+                .ToListAsync();
+
+            return latestPerPipeline.ToDictionary(r => r.PipelineId);
+        }
     }
 }

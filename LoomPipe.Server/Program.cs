@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using LoomPipe.Connectors;
 using LoomPipe.Core.Entities;
@@ -12,6 +13,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+// ── CORS ─────────────────────────────────────────────────────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCors", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // ── DbContexts ──────────────────────────────────────────────────────────────
 if (builder.Environment.IsEnvironment("Testing"))
@@ -58,16 +69,34 @@ builder.Services.AddScoped<LoomPipe.Storage.Interfaces.IDataSourceConfigReposito
 builder.Services.AddScoped<LoomPipe.Storage.Interfaces.IConnectionProfileRepository, LoomPipe.Storage.Repositories.ConnectionProfileRepository>();
 builder.Services.AddScoped<IConnectionProfileService, ConnectionProfileService>();
 builder.Services.AddScoped<IConnectorFactory, ConnectorFactory>();
-builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
-builder.Services.AddScoped<IPipelineRunLogRepository, PipelineRunLogRepository>();
-builder.Services.AddScoped<IUserConnectionPermissionRepository, UserConnectionPermissionRepository>();
+builder.Services.AddScoped<LoomPipe.Core.Interfaces.IAppUserRepository, LoomPipe.Storage.Repositories.AppUserRepository>();
+builder.Services.AddScoped<LoomPipe.Core.Interfaces.IPipelineRunLogRepository, LoomPipe.Storage.Repositories.PipelineRunLogRepository>();
+builder.Services.AddScoped<LoomPipe.Core.Interfaces.IUserConnectionPermissionRepository, LoomPipe.Storage.Repositories.UserConnectionPermissionRepository>();
 builder.Services.AddHostedService<ConnectorWorker>();
 builder.Services.AddHttpClient();
+
+// ── Email notification service (singleton — reads/writes a settings file) ────
+var emailSettingsPath = Path.Combine(builder.Environment.ContentRootPath, "email-settings.json");
+builder.Services.AddSingleton<IEmailNotificationService>(sp =>
+    new EmailNotificationService(
+        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<EmailNotificationService>>(),
+        emailSettingsPath));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+
 var app = builder.Build();
+
+// Show detailed errors in development
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+    app.UseCors("DevCors");
+}
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 // ── Seed default admin user ───────────────────────────────────────────────────
 if (!app.Environment.IsEnvironment("Testing"))
@@ -93,11 +122,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+// In production, configure CORS more restrictively
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

@@ -62,7 +62,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to write to Milvus. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to Milvus: {ex.Message}", ex, "milvus");
             }
         }
 

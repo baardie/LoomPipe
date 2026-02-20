@@ -41,7 +41,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from Milvus. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from Milvus: {ex.Message}", ex, "milvus");
             }
         }
 
@@ -56,7 +56,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover Milvus schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover Milvus schema: {ex.Message}", ex, "milvus");
             }
         }
 
@@ -69,7 +69,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Milvus dry run failed. See inner exception.", ex);
+                throw new ConnectorException($"Milvus dry run failed: {ex.Message}", ex, "milvus");
             }
         }
 

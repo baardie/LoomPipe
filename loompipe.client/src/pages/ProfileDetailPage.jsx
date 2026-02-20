@@ -1,182 +1,126 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Box, Button, Chip, CircularProgress, Container, Divider,
-    List, ListItem, ListItemText, Paper, Typography,
-    Checkbox, FormControlLabel, Stack, Alert,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, ChevronLeft, Play, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import RoleGuard from '../components/auth/RoleGuard';
 
 const ProfileDetailPage = ({ profileId, onBack, pipelines }) => {
-    const { authFetch, isAdmin } = useAuth();
-    const [profile, setProfile] = useState(null);
-    const [testing, setTesting] = useState(false);
-    const [testResult, setTestResult] = useState(null);
+  const { authFetch, isAdmin } = useAuth();
+  const [profile,          setProfile]          = useState(null);
+  const [testing,          setTesting]          = useState(false);
+  const [testResult,       setTestResult]       = useState(null);
+  const [allUsers,         setAllUsers]         = useState([]);
+  const [permittedUserIds, setPermittedUserIds] = useState(new Set());
+  const [permSaving,       setPermSaving]       = useState(null);
 
-    // Permission management state (Admin only)
-    const [allUsers, setAllUsers] = useState([]);
-    const [permittedUserIds, setPermittedUserIds] = useState(new Set());
-    const [permSaving, setPermSaving] = useState(null); // userId being toggled
+  const load = useCallback(async () => {
+    const res = await authFetch(`/api/connections/${profileId}`);
+    if (res.ok) setProfile(await res.json());
+  }, [profileId, authFetch]);
 
-    const load = useCallback(async () => {
-        const res = await authFetch(`/api/connections/${profileId}`);
-        if (res.ok) setProfile(await res.json());
-    }, [profileId, authFetch]);
+  const loadPermissions = useCallback(async () => {
+    const [usersRes, permRes] = await Promise.all([authFetch('/api/users'), authFetch(`/api/connections/${profileId}/users`)]);
+    if (usersRes.ok) setAllUsers(await usersRes.json());
+    if (permRes.ok) setPermittedUserIds(new Set(await permRes.json()));
+  }, [profileId, authFetch]);
 
-    const loadPermissions = useCallback(async () => {
-        const [usersRes, permRes] = await Promise.all([
-            authFetch('/api/users'),
-            authFetch(`/api/connections/${profileId}/users`),
-        ]);
-        if (usersRes.ok) setAllUsers(await usersRes.json());
-        if (permRes.ok) setPermittedUserIds(new Set(await permRes.json()));
-    }, [profileId, authFetch]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (isAdmin) loadPermissions(); }, [isAdmin, loadPermissions]);
 
-    useEffect(() => { load(); }, [load]);
-    useEffect(() => { if (isAdmin) loadPermissions(); }, [isAdmin, loadPermissions]);
+  const handleTest = async () => {
+    setTesting(true); setTestResult(null);
+    try {
+      const res = await authFetch(`/api/connections/${profileId}/test`, { method: 'POST' });
+      if (res.ok) { setTestResult(await res.json()); await load(); }
+    } finally { setTesting(false); }
+  };
 
-    const handleTest = async () => {
-        setTesting(true);
-        setTestResult(null);
-        try {
-            const res = await authFetch(`/api/connections/${profileId}/test`, { method: 'POST' });
-            if (res.ok) {
-                const data = await res.json();
-                setTestResult(data);
-                await load();
-            }
-        } finally {
-            setTesting(false);
-        }
-    };
+  const handleToggleUser = async (userId, currentlyGranted) => {
+    setPermSaving(userId);
+    try {
+      await authFetch(`/api/connections/${profileId}/users/${userId}`, { method: currentlyGranted ? 'DELETE' : 'POST' });
+      setPermittedUserIds(prev => { const n = new Set(prev); currentlyGranted ? n.delete(userId) : n.add(userId); return n; });
+    } finally { setPermSaving(null); }
+  };
 
-    const handleToggleUser = async (userId, currentlyGranted) => {
-        setPermSaving(userId);
-        try {
-            const method = currentlyGranted ? 'DELETE' : 'POST';
-            await authFetch(`/api/connections/${profileId}/users/${userId}`, { method });
-            setPermittedUserIds(prev => {
-                const next = new Set(prev);
-                if (currentlyGranted) next.delete(userId); else next.add(userId);
-                return next;
-            });
-        } finally {
-            setPermSaving(null);
-        }
-    };
+  const linkedPipelines = (pipelines || []).filter(p =>
+    String(p.source?.parameters?.connectionProfileId) === String(profileId) ||
+    String(p.destination?.parameters?.connectionProfileId) === String(profileId)
+  );
+  const nonAdminUsers = allUsers.filter(u => u.role !== 'Admin' && u.isActive);
 
-    const linkedPipelines = (pipelines || []).filter((p) => {
-        const sid = p.source?.parameters?.connectionProfileId;
-        const did = p.destination?.parameters?.connectionProfileId;
-        return String(sid) === String(profileId) || String(did) === String(profileId);
-    });
+  if (!profile) return <div className="flex items-center justify-center h-48"><Loader2 size={20} className="animate-spin text-[var(--accent)]" /></div>;
 
-    // Only show non-Admin users in the permissions list (Admins always have access)
-    const nonAdminUsers = allUsers.filter(u => u.role !== 'Admin' && u.isActive);
+  return (
+    <div className="p-6">
+      <button onClick={onBack} className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-4 transition-colors">
+        <ChevronLeft size={15} /> Back to Sources &amp; Destinations
+      </button>
 
-    if (!profile) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h1 className="text-base font-semibold text-[var(--text-primary)]">{profile.name}</h1>
+          <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-secondary)] font-mono">{profile.provider}</span>
+        </div>
+        <button onClick={handleTest} disabled={testing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-white rounded transition-colors disabled:opacity-60">
+          {testing ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Test Connection
+        </button>
+      </div>
 
-    return (
-        <Container sx={{ my: 4 }}>
-            <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mb: 2 }}>
-                Back to Connections
-            </Button>
+      {testResult && (
+        <div className={`flex items-center gap-2 mb-4 px-3 py-2 rounded border text-xs ${testResult.success ? 'text-[var(--green)] border-[var(--green)]/40 bg-green-900/20' : 'text-[var(--red)] border-[var(--red)]/40 bg-red-900/20'}`}>
+          {testResult.success ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          {testResult.success ? `Connected (${testResult.elapsedMs}ms)` : `Failed: ${testResult.errorMessage}`}
+        </div>
+      )}
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Box>
-                    <Typography variant="h4">{profile.name}</Typography>
-                    <Chip label={profile.provider} size="small" sx={{ mt: 0.5 }} />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button variant="contained" onClick={handleTest} disabled={testing}>
-                        {testing ? <CircularProgress size={20} color="inherit" /> : 'Test Connection'}
-                    </Button>
-                </Box>
-            </Box>
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Details</h2>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+          {profile.host && <><dt className="text-[var(--text-muted)]">Host</dt><dd className="text-[var(--text-primary)] font-mono">{profile.host}</dd></>}
+          {profile.databaseName && <><dt className="text-[var(--text-muted)]">Database</dt><dd className="text-[var(--text-primary)] font-mono">{profile.databaseName}</dd></>}
+          {profile.createdAt && <><dt className="text-[var(--text-muted)]">Created</dt><dd className="text-[var(--text-secondary)]">{new Date(profile.createdAt).toLocaleDateString()}</dd></>}
+          {profile.lastTestedAt && <><dt className="text-[var(--text-muted)]">Last Tested</dt><dd className="text-[var(--text-secondary)]">{new Date(profile.lastTestedAt).toLocaleString()}</dd></>}
+        </dl>
+      </div>
 
-            {testResult && (
-                <Box sx={{ mb: 2 }}>
-                    <Chip
-                        label={testResult.success ? `Connected (${testResult.elapsedMs}ms)` : `Failed: ${testResult.errorMessage}`}
-                        color={testResult.success ? 'success' : 'error'}
-                    />
-                </Box>
-            )}
+      <RoleGuard roles={['Admin']}>
+        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-2">User Access</h2>
+          <p className="text-xs text-[var(--text-muted)] mb-3">Admins always have full access. Grant access to User-role accounts below.</p>
+          {nonAdminUsers.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">No non-admin users found.</p>
+          ) : nonAdminUsers.map(u => {
+            const granted = permittedUserIds.has(u.id);
+            return (
+              <label key={u.id} className="flex items-center gap-2 py-1 text-xs text-[var(--text-primary)] cursor-pointer">
+                <input type="checkbox" checked={granted} disabled={permSaving === u.id} onChange={() => handleToggleUser(u.id, granted)}
+                  style={{ accentColor: 'var(--accent)' }} />
+                <span className="font-mono">{u.username}</span>
+                <span className="text-[var(--text-muted)]">{u.role}</span>
+                {permSaving === u.id && <Loader2 size={11} className="animate-spin text-[var(--accent)]" />}
+              </label>
+            );
+          })}
+        </div>
+      </RoleGuard>
 
-            <Paper sx={{ p: 2, mb: 3 }} elevation={1}>
-                <Typography variant="subtitle2" color="text.secondary">Details</Typography>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                    {profile.host && <><Typography variant="caption" color="text.secondary">Host</Typography><Typography>{profile.host}</Typography></>}
-                    {profile.databaseName && <><Typography variant="caption" color="text.secondary">Database</Typography><Typography>{profile.databaseName}</Typography></>}
-                    {profile.createdAt && <><Typography variant="caption" color="text.secondary">Created</Typography><Typography>{new Date(profile.createdAt).toLocaleDateString()}</Typography></>}
-                    {profile.lastTestedAt && <><Typography variant="caption" color="text.secondary">Last Tested</Typography><Typography>{new Date(profile.lastTestedAt).toLocaleString()}</Typography></>}
-                    {profile.lastTestSucceeded != null && <><Typography variant="caption" color="text.secondary">Last Test</Typography><Chip label={profile.lastTestSucceeded ? 'Passed' : 'Failed'} color={profile.lastTestSucceeded ? 'success' : 'error'} size="small" /></>}
-                </Box>
-            </Paper>
-
-            {/* Permitted Users — Admin only */}
-            <RoleGuard roles={['Admin']}>
-                <Typography variant="h6" sx={{ mb: 1 }}>User Access</Typography>
-                <Paper sx={{ p: 2, mb: 3 }} elevation={1}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Admins always have full access. Grant access to specific User-role accounts below.
-                    </Typography>
-                    {nonAdminUsers.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">No non-admin users found.</Typography>
-                    ) : (
-                        <Stack spacing={0.5}>
-                            {nonAdminUsers.map(u => {
-                                const granted = permittedUserIds.has(u.id);
-                                return (
-                                    <FormControlLabel
-                                        key={u.id}
-                                        control={
-                                            <Checkbox
-                                                checked={granted}
-                                                disabled={permSaving === u.id}
-                                                onChange={() => handleToggleUser(u.id, granted)}
-                                                size="small"
-                                            />
-                                        }
-                                        label={
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                                <span>{u.username}</span>
-                                                <Chip label={u.role} size="small" variant="outlined" />
-                                                {permSaving === u.id && <CircularProgress size={14} />}
-                                            </Stack>
-                                        }
-                                    />
-                                );
-                            })}
-                        </Stack>
-                    )}
-                </Paper>
-            </RoleGuard>
-
-            <Typography variant="h6" sx={{ mb: 1 }}>Linked Pipelines</Typography>
-            <Paper elevation={1}>
-                {linkedPipelines.length === 0 ? (
-                    <Box sx={{ p: 2, color: 'text.secondary' }}>No pipelines use this connection profile.</Box>
-                ) : (
-                    <List dense>
-                        {linkedPipelines.map((p) => (
-                            <ListItem key={p.id}>
-                                <ListItemText primary={p.name} secondary={`ID: ${p.id}`} />
-                            </ListItem>
-                        ))}
-                    </List>
-                )}
-            </Paper>
-        </Container>
-    );
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-3">Linked Pipelines</h2>
+        {linkedPipelines.length === 0 ? (
+          <p className="text-xs text-[var(--text-muted)]">No pipelines use this connection profile.</p>
+        ) : (
+          <ul className="space-y-1">
+            {linkedPipelines.map(p => (
+              <li key={p.id} className="flex items-center gap-2 text-xs">
+                <span className="text-[var(--text-primary)]">{p.name}</span>
+                <span className="text-[var(--text-muted)] font-mono">#{p.id}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default ProfileDetailPage;

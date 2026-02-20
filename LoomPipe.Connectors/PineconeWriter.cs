@@ -49,7 +49,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to write to Pinecone. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to Pinecone: {ex.Message}", ex, "pinecone");
             }
         }
 

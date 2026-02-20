@@ -55,7 +55,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to write to Neo4j. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to Neo4j: {ex.Message}", ex, "neo4j");
             }
         }
 

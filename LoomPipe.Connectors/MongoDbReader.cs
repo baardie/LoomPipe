@@ -39,7 +39,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from MongoDB. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from MongoDB: {ex.Message}", ex, "mongodb");
             }
         }
 
@@ -56,7 +56,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover MongoDB schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover MongoDB schema: {ex.Message}", ex, "mongodb");
             }
         }
 
@@ -73,7 +73,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("MongoDB dry run failed. See inner exception.", ex);
+                throw new ConnectorException($"MongoDB dry run failed: {ex.Message}", ex, "mongodb");
             }
         }
 

@@ -1,28 +1,18 @@
-import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
-import { Paper, Typography } from '@mui/material';
 
-const MappedField = ({ field, index }) => {
-    return (
-        <Draggable draggableId={field.id} index={index}>
-            {(provided, snapshot) => (
-                <Paper
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    sx={{
-                        p: 1,
-                        backgroundColor: snapshot.isDragging ? 'lightcoral' : 'white',
-                        border: '1px solid lightgrey',
-                        borderRadius: '4px',
-                        width: '100%'
-                    }}
-                >
-                    <Typography>{field.content}</Typography>
-                </Paper>
-            )}
-        </Draggable>
-    );
-};
+const MappedField = ({ field, sourceFieldId }) => (
+  <Draggable draggableId={field.id} index={0}>
+    {(provided, snapshot) => (
+      <div
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        {...provided.dragHandleProps}
+        className={`px-2 py-0.5 rounded text-xs font-mono border cursor-grab transition-colors ${snapshot.isDragging ? 'bg-[var(--yellow)]/20 border-[var(--yellow)] text-[var(--yellow)]' : 'bg-[var(--accent)]/10 border-[var(--accent)]/40 text-[var(--accent)]'}`}
+      >
+        {field.content}
+      </div>
+    )}
+  </Draggable>
+);
 
 export default MappedField;

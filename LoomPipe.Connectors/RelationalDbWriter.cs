@@ -68,7 +68,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException($"Failed to write to {_provider}. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to {_provider}: {ex.Message}", ex, _provider);
             }
         }
 
@@ -90,7 +90,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException($"Schema validation failed for {_provider}. See inner exception.", ex);
+                throw new ConnectorException($"Schema validation failed for {_provider}: {ex.Message}", ex, _provider);
             }
         }
 

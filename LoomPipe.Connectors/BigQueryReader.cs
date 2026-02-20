@@ -42,7 +42,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from BigQuery. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from BigQuery: {ex.Message}", ex, "bigquery");
             }
         }
 
@@ -58,7 +58,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover BigQuery schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover BigQuery schema: {ex.Message}", ex, "bigquery");
             }
         }
 
@@ -75,7 +75,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("BigQuery dry run failed. See inner exception.", ex);
+                throw new ConnectorException($"BigQuery dry run failed: {ex.Message}", ex, "bigquery");
             }
         }
 

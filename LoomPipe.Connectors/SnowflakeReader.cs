@@ -41,7 +41,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from Snowflake. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from Snowflake: {ex.Message}", ex, "snowflake");
             }
         }
 
@@ -64,7 +64,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover Snowflake schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover Snowflake schema: {ex.Message}", ex, "snowflake");
             }
         }
 
@@ -80,7 +80,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Snowflake dry run failed. See inner exception.", ex);
+                throw new ConnectorException($"Snowflake dry run failed: {ex.Message}", ex, "snowflake");
             }
         }
 

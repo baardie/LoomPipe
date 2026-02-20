@@ -48,7 +48,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to write to BigQuery. See inner exception.", ex);
+                throw new ConnectorException($"Failed to write to BigQuery: {ex.Message}", ex, "bigquery");
             }
         }
 
@@ -64,7 +64,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("BigQuery schema validation failed. See inner exception.", ex);
+                throw new ConnectorException($"BigQuery schema validation failed: {ex.Message}", ex, "bigquery");
             }
         }
 

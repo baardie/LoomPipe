@@ -1,104 +1,64 @@
-import React, { useState } from 'react';
-import { Modal, Box, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, Tabs, Tab } from '@mui/material';
+import { useState } from 'react';
+import { X } from 'lucide-react';
 
-const style = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '80%',
-    bgcolor: 'background.paper',
-    boxShadow: 24,
-    p: 4,
-};
-
-const TabPanel = (props) => {
-    const { children, value, index, ...other } = props;
-
-    return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            id={`simple-tabpanel-${index}`}
-            aria-labelledby={`simple-tab-${index}`}
-            {...other}
-        >
-            {value === index && (
-                <Box sx={{ p: 3 }}>
-                    {children}
-                </Box>
-            )}
-        </div>
-    );
-}
-
-const DataTable = ({ data }) => {
-    if (!data || data.length === 0) {
-        return <Typography>No data to display.</Typography>;
-    }
-
-    return (
-        <Paper>
-            <Table size="small">
-                <TableHead>
-                    <TableRow>
-                        {Object.keys(data[0] || {}).map((key) => (
-                            <TableCell key={key}>{key}</TableCell>
-                        ))}
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {data.map((row, i) => (
-                        <TableRow key={i}>
-                            {Object.values(row).map((value, j) => (
-                                <TableCell key={j}>{String(value)}</TableCell>
-                            ))}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </Paper>
-    );
-};
-
+const TABS = ['Source', 'Mapped', 'Transformed'];
 
 const DryRunResultModal = ({ open, onClose, dryRunResult }) => {
-    const [tabIndex, setTabIndex] = useState(0);
+  const [tab, setTab] = useState(0);
+  if (!open || !dryRunResult) return null;
 
-    const handleChange = (event, newValue) => {
-        setTabIndex(newValue);
-    };
+  const rows = tab === 0 ? dryRunResult.sourcePreview : tab === 1 ? dryRunResult.mappedPreview : dryRunResult.transformedPreview;
+  const cols = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
 
-    return (
-        <Modal
-            open={open}
-            onClose={onClose}
-            aria-labelledby="dry-run-result-title"
-            aria-describedby="dry-run-result-description"
-        >
-            <Box sx={style}>
-                <Typography id="dry-run-result-title" variant="h6" component="h2">
-                    Dry Run Result
-                </Typography>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs value={tabIndex} onChange={handleChange} aria-label="dry run result tabs">
-                        <Tab label="Source" />
-                        <Tab label="Mapped" />
-                        <Tab label="Transformed" />
-                    </Tabs>
-                </Box>
-                <TabPanel value={tabIndex} index={0}>
-                    <DataTable data={dryRunResult?.sourcePreview} />
-                </TabPanel>
-                <TabPanel value={tabIndex} index={1}>
-                    <DataTable data={dryRunResult?.mappedPreview} />
-                </TabPanel>
-                <TabPanel value={tabIndex} index={2}>
-                    <DataTable data={dryRunResult?.transformedPreview} />
-                </TabPanel>
-            </Box>
-        </Modal>
-    );
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Dry Run Results</h2>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X size={16} /></button>
+        </div>
+
+        {dryRunResult.error ? (
+          <div className="flex-1 overflow-auto p-4">
+            <div className="bg-red-900/20 border border-[var(--red)]/40 rounded-lg p-4">
+              <p className="text-xs font-semibold text-[var(--red)] mb-1">Dry run failed</p>
+              <p className="text-xs text-[var(--text-secondary)] font-mono whitespace-pre-wrap">{dryRunResult.error}</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex border-b border-[var(--border)]">
+              {TABS.map((label, i) => (
+                <button key={label} onClick={() => setTab(i)}
+                  className={`px-4 py-2 text-xs -mb-px transition-colors ${tab === i ? 'border-b-2 border-[var(--accent)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {!rows || rows.length === 0 ? (
+                <p className="text-xs text-[var(--text-muted)] text-center py-8">No data.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-[var(--bg-subtle)] sticky top-0">
+                    <tr>{cols.map(c => <th key={c} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] font-mono">{c}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {rows.map((row, i) => (
+                      <tr key={i} className="hover:bg-[var(--bg-subtle)]">
+                        {cols.map(c => <td key={c} className="px-3 py-1.5 font-mono text-[var(--text-primary)] truncate max-w-xs">{String(row[c] ?? '')}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default DryRunResultModal;

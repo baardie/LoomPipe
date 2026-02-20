@@ -1,45 +1,29 @@
 import React from 'react';
-import { Box, Divider, Link, Typography } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
+import { Heart } from 'lucide-react';
 
-// Update GITHUB_URL after the repository is published
 const GITHUB_URL = 'https://github.com/baardie/LoomPipe';
 
 const Footer = () => (
-    <Box
-        component="footer"
-        sx={{
-            mt: 8,
-            py: 3,
-            px: 2,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            textAlign: 'center',
-        }}
+  <footer className="border-t border-[var(--border)] py-3 px-4 text-center text-xs text-[var(--text-muted)]">
+    Built by{' '}
+    <a href="mailto:lukebaard@outlook.com" className="hover:text-[var(--text-secondary)] transition-colors">
+      Luke Baard
+    </a>
+    {' · '}
+    <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">
+      GitHub
+    </a>
+    {' · '}
+    <a
+      href="https://www.paypal.com/paypalme/baardie"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 hover:text-[var(--text-secondary)] transition-colors"
     >
-        <Typography variant="body2" color="text.secondary">
-            Built by{' '}
-            <Link href={`mailto:lukebaard@outlook.com`} underline="hover" color="inherit">
-                Luke Baard
-            </Link>
-            {' · '}
-            <Link href={GITHUB_URL} target="_blank" rel="noopener noreferrer" underline="hover" color="inherit">
-                GitHub
-            </Link>
-            {' · '}
-            <Link
-                href="https://www.paypal.com/paypalme/baardie"
-                target="_blank"
-                rel="noopener noreferrer"
-                underline="hover"
-                color="inherit"
-                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4 }}
-            >
-                <FavoriteIcon sx={{ fontSize: 13, color: '#e53935', verticalAlign: 'middle' }} />
-                Buy me a coffee
-            </Link>
-        </Typography>
-    </Box>
+      <Heart size={11} className="text-[var(--red)]" />
+      Buy me a coffee
+    </a>
+  </footer>
 );
 
 export default Footer;

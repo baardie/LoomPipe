@@ -1,5 +1,6 @@
 using LoomPipe.Core.Entities;
 using LoomPipe.Core.Enums;
+using LoomPipe.Core.Exceptions;
 using LoomPipe.Core.Interfaces;
 using LoomPipe.Engine;
 using LoomPipe.Storage.Interfaces;
@@ -104,6 +105,8 @@ namespace LoomPipe.Workers
                     };
                     await runLogRepo.AddAsync(log);
 
+                    var emailService = services.GetRequiredService<IEmailNotificationService>();
+
                     try
                     {
                         var engine = new PipelineEngine(sourceReader, destinationWriter, engineLogger);
@@ -114,14 +117,42 @@ namespace LoomPipe.Workers
                         log.RowsProcessed = rows;
                         await runLogRepo.UpdateAsync(log);
                         _logger.LogInformation("Scheduled pipeline '{Name}' completed ({Rows} rows).", pipeline.Name, rows);
+
+                        try
+                        {
+                            await emailService.SendPipelineSuccessAsync(
+                                pipeline.Name, pipeline.Id, rows, "scheduler", log.FinishedAt.Value);
+                        }
+                        catch (Exception mailEx)
+                        {
+                            _logger.LogWarning(mailEx, "Success notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
+                        }
                     }
                     catch (Exception ex)
                     {
+                        var (errorMessage, stage) = ex is PipelineExecutionException pex
+                            ? (pex.GetDetailedMessage(), pex.Stage)
+                            : (ex.Message, null);
+
                         log.FinishedAt   = DateTime.UtcNow;
                         log.Status       = "Failed";
-                        log.ErrorMessage = ex.Message;
+                        log.ErrorMessage = errorMessage;
                         await runLogRepo.UpdateAsync(log);
-                        _logger.LogError(ex, "Scheduled pipeline '{Name}' failed.", pipeline.Name);
+
+                        _logger.LogError(ex,
+                            "Scheduled pipeline '{Name}' (Id={Id}) failed at stage '{Stage}'.",
+                            pipeline.Name, pipeline.Id, stage ?? "unknown");
+
+                        try
+                        {
+                            await emailService.SendPipelineFailureAsync(
+                                pipeline.Name, pipeline.Id, errorMessage,
+                                stage ?? "Pipeline", "scheduler", log.FinishedAt.Value);
+                        }
+                        catch (Exception mailEx)
+                        {
+                            _logger.LogWarning(mailEx, "Failure notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
+                        }
                     }
 
                     // Advance NextRunAt

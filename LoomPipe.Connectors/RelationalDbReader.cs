@@ -44,7 +44,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException($"Failed to read from {_provider}. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from {_provider}: {ex.Message}", ex, _provider);
             }
         }
 
@@ -66,7 +66,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException($"Failed to discover schema for {_provider}. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover schema for {_provider}: {ex.Message}", ex, _provider);
             }
         }
 
@@ -81,7 +81,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException($"Dry run failed for {_provider}. See inner exception.", ex);
+                throw new ConnectorException($"Dry run failed for {_provider}: {ex.Message}", ex, _provider);
             }
         }
 

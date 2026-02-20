@@ -58,7 +58,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from Pinecone. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from Pinecone: {ex.Message}", ex, "pinecone");
             }
         }
 
@@ -73,7 +73,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover Pinecone schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover Pinecone schema: {ex.Message}", ex, "pinecone");
             }
         }
 

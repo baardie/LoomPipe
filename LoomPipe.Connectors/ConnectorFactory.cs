@@ -33,6 +33,7 @@ namespace LoomPipe.Connectors
         public ISourceReader CreateSourceReader(string type) => type.ToLowerInvariant() switch
         {
             "csv"        => new CsvSourceReader(_loggerFactory.CreateLogger<CsvSourceReader>()),
+            "json"       => new JsonSourceReader(_loggerFactory.CreateLogger<JsonSourceReader>()),
             "rest"       => new RestSourceReader(_httpClientFactory.CreateClient(), _loggerFactory.CreateLogger<RestSourceReader>()),
             "sqlserver"  => new RelationalDbReader("sqlserver",  _loggerFactory.CreateLogger<RelationalDbReader>()),
             "postgresql" => new RelationalDbReader("postgresql", _loggerFactory.CreateLogger<RelationalDbReader>()),
@@ -92,6 +93,18 @@ namespace LoomPipe.Connectors
         {
             switch (provider.ToLowerInvariant())
             {
+                case "csv":
+                    if (!System.IO.File.Exists(connectionString))
+                        throw new System.IO.FileNotFoundException($"CSV file not found: {connectionString}");
+                    break;
+                case "rest":
+                case "webhook":
+                    using (var http = new System.Net.Http.HttpClient())
+                    {
+                        var resp = await http.GetAsync(connectionString);
+                        resp.EnsureSuccessStatusCode();
+                    }
+                    break;
                 case "sqlserver":
                     await using (var conn = new SqlConnection(connectionString)) { await conn.OpenAsync(); }
                     break;

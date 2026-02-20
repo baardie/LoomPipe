@@ -121,6 +121,9 @@ namespace LoomPipe.Services
 
             return profile.Provider switch
             {
+                "csv"        => host ?? throw new InvalidOperationException("CSV file path (Host field) is required."),
+                "rest"       => host ?? throw new InvalidOperationException("REST URL (Host field) is required."),
+                "webhook"    => host ?? throw new InvalidOperationException("Webhook URL (Host field) is required."),
                 "sqlserver"  => $"Server={host},{port};Database={db};User Id={user};Password={pw};TrustServerCertificate=True",
                 "postgresql" => $"Host={host};Port={port};Database={db};Username={user};Password={pw}",
                 "mysql"      => $"Server={host};Port={port};Database={db};Uid={user};Pwd={pw}",

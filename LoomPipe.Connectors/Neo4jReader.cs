@@ -42,7 +42,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to read from Neo4j. See inner exception.", ex);
+                throw new ConnectorException($"Failed to read from Neo4j: {ex.Message}", ex, "neo4j");
             }
         }
 
@@ -62,7 +62,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Failed to discover Neo4j schema. See inner exception.", ex);
+                throw new ConnectorException($"Failed to discover Neo4j schema: {ex.Message}", ex, "neo4j");
             }
         }
 
@@ -80,7 +80,7 @@ namespace LoomPipe.Connectors
             }
             catch (Exception ex)
             {
-                throw new ConnectorException("Neo4j dry run failed. See inner exception.", ex);
+                throw new ConnectorException($"Neo4j dry run failed: {ex.Message}", ex, "neo4j");
             }
         }
 

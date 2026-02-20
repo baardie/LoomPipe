@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using LoomPipe.Core.DTOs;
 using LoomPipe.Core.Entities;
+using LoomPipe.Core.Exceptions;
 using LoomPipe.Core.Interfaces;
 using LoomPipe.Engine;
 using LoomPipe.Storage.Interfaces;
@@ -29,22 +30,52 @@ namespace LoomPipe.Server.Controllers
         private readonly IConnectorFactory _connectorFactory;
         private readonly IConnectionProfileService _connectionProfileService;
         private readonly IPipelineRunLogRepository _runLogRepo;
+        private readonly IEmailNotificationService _emailNotificationService;
+        private readonly ILogger<PipelinesController> _logger;
 
         public PipelinesController(
             IPipelineRepository pipelineRepository,
             IConnectorFactory connectorFactory,
             IConnectionProfileService connectionProfileService,
-            IPipelineRunLogRepository runLogRepo)
+            IPipelineRunLogRepository runLogRepo,
+            IEmailNotificationService emailNotificationService,
+            ILogger<PipelinesController> logger)
         {
-            _pipelineRepository = pipelineRepository;
-            _connectorFactory   = connectorFactory;
+            _pipelineRepository       = pipelineRepository;
+            _connectorFactory         = connectorFactory;
             _connectionProfileService = connectionProfileService;
-            _runLogRepo         = runLogRepo;
+            _runLogRepo               = runLogRepo;
+            _emailNotificationService = emailNotificationService;
+            _logger                   = logger;
         }
 
+        /// <summary>
+        /// Returns all pipelines enriched with last-run status so the UI can show
+        /// a status badge on each row without a separate request per pipeline.
+        /// </summary>
         [HttpGet]
-        public async Task<IEnumerable<Pipeline>> Get()
-            => await _pipelineRepository.GetAllAsync();
+        public async Task<IActionResult> Get()
+        {
+            var pipelines  = await _pipelineRepository.GetAllAsync();
+            var latestRuns = await _runLogRepo.GetLatestRunPerPipelineAsync();
+
+            var result = pipelines.Select(p =>
+            {
+                latestRuns.TryGetValue(p.Id, out var last);
+                return new
+                {
+                    p.Id, p.Name, p.Source, p.Destination,
+                    p.FieldMappings, p.Transformations,
+                    p.ScheduleEnabled, p.ScheduleIntervalMinutes, p.NextRunAt,
+                    p.BatchSize, p.BatchDelaySeconds, p.CreatedAt,
+                    LastRunStatus    = last?.Status,
+                    LastRunAt        = last?.StartedAt,
+                    LastErrorMessage = last?.ErrorMessage,
+                };
+            });
+
+            return Ok(result);
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Pipeline>> Get(int id)
@@ -116,6 +147,7 @@ namespace LoomPipe.Server.Controllers
             {
                 var engine = new PipelineEngine(sourceReader, destinationWriter,
                     HttpContext.RequestServices.GetRequiredService<ILogger<PipelineEngine>>());
+
                 var rows = await engine.RunPipelineAsync(pipeline);
 
                 log.FinishedAt    = DateTime.UtcNow;
@@ -123,15 +155,31 @@ namespace LoomPipe.Server.Controllers
                 log.RowsProcessed = rows;
                 await _runLogRepo.UpdateAsync(log);
 
+                _ = NotifySuccessAsync(pipeline, rows, triggeredBy, log.FinishedAt.Value);
+
                 return Ok(new { rowsProcessed = rows });
             }
             catch (Exception ex)
             {
-                log.FinishedAt    = DateTime.UtcNow;
-                log.Status        = "Failed";
-                log.ErrorMessage  = ex.Message;
+                var (userMessage, stage) = ExtractError(ex);
+
+                _logger.LogError(ex,
+                    "Pipeline {PipelineName} (Id={PipelineId}) failed at stage {Stage} triggered by {TriggeredBy}.",
+                    pipeline.Name, pipeline.Id, stage ?? "unknown", triggeredBy);
+
+                log.FinishedAt   = DateTime.UtcNow;
+                log.Status       = "Failed";
+                log.ErrorMessage = userMessage;
                 await _runLogRepo.UpdateAsync(log);
-                return StatusCode(500, new { message = ex.Message });
+
+                _ = NotifyFailureAsync(pipeline, userMessage, stage ?? "Pipeline", triggeredBy, log.FinishedAt.Value);
+
+                return StatusCode(500, new
+                {
+                    message    = userMessage,
+                    stage      = stage,
+                    pipelineId = pipeline.Id,
+                });
             }
         }
 
@@ -223,7 +271,7 @@ namespace LoomPipe.Server.Controllers
             return Ok(result);
         }
 
-        // ── Helpers ───────────────────────────────────────────────────────────
+        // ── Private helpers ───────────────────────────────────────────────────
 
         private async Task ResolveProfileAsync(DataSourceConfig config)
         {
@@ -232,6 +280,49 @@ namespace LoomPipe.Server.Controllers
                 && int.TryParse(raw?.ToString(), out var profileId))
             {
                 config.ConnectionString = await _connectionProfileService.BuildConnectionStringAsync(profileId);
+            }
+        }
+
+        /// <summary>
+        /// Extracts a clean, human-readable error message and failing stage from the
+        /// exception chain. Eliminates generic "See inner exception..." noise.
+        /// </summary>
+        private static (string message, string? stage) ExtractError(Exception ex)
+        {
+            if (ex is PipelineExecutionException pex)
+                return (pex.GetDetailedMessage(), pex.Stage);
+
+            // Unexpected exception — walk to root cause for the most useful message
+            var root = ex;
+            while (root.InnerException != null)
+                root = root.InnerException;
+
+            return (root.Message, null);
+        }
+
+        private async Task NotifyFailureAsync(Pipeline pipeline, string errorMessage, string stage, string triggeredBy, DateTime failedAt)
+        {
+            try
+            {
+                await _emailNotificationService.SendPipelineFailureAsync(
+                    pipeline.Name, pipeline.Id, errorMessage, stage, triggeredBy, failedAt);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failure notification could not be delivered for pipeline {Name}.", pipeline.Name);
+            }
+        }
+
+        private async Task NotifySuccessAsync(Pipeline pipeline, int rows, string triggeredBy, DateTime completedAt)
+        {
+            try
+            {
+                await _emailNotificationService.SendPipelineSuccessAsync(
+                    pipeline.Name, pipeline.Id, rows, triggeredBy, completedAt);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Success notification could not be delivered for pipeline {Name}.", pipeline.Name);
             }
         }
     }

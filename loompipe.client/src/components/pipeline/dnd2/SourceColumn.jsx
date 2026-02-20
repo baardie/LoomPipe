@@ -1,19 +1,19 @@
-import React from 'react';
-import { Paper, Typography, Box } from '@mui/material';
+import { Droppable } from '@hello-pangea/dnd';
 import SourceField from './SourceField';
 
-const SourceColumn = ({ column, fields, mappedFields }) => {
-    return (
-        <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>{column.title}</Typography>
-            <Box sx={{ flexGrow: 1, p: 1, borderRadius: '4px' }}>
-                {fields.map(field => {
-                    const mappedField = mappedFields.find(mf => mf.sourceFieldId === field.id);
-                    return <SourceField key={field.id} field={field} mappedField={mappedField} />;
-                })}
-            </Box>
-        </Paper>
-    );
-};
+const SourceColumn = ({ column, fields, mappedFields }) => (
+  <div className="flex flex-col h-full">
+    <h3 className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">{column.title}</h3>
+    <div className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-2 overflow-y-auto">
+      {fields.map(field => (
+        <SourceField
+          key={field.id}
+          field={field}
+          mappedField={mappedFields.find(mf => mf.sourceFieldId === field.id) || null}
+        />
+      ))}
+    </div>
+  </div>
+);
 
 export default SourceColumn;

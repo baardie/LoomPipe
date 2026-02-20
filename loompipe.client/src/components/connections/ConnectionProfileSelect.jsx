@@ -1,94 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { FormControl, InputLabel, Select, MenuItem, IconButton, Tooltip, Stack, CircularProgress } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import ConnectionProfileDialog from './ConnectionProfileDialog';
+import { useState, useEffect } from 'react';
+import { Loader2, PlusCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import ConnectionProfileDialog from './ConnectionProfileDialog';
 
-const PROVIDER_LABELS = {
-  sqlserver: 'SQL Server', postgresql: 'PostgreSQL', mysql: 'MySQL',
-  oracle: 'Oracle', mongodb: 'MongoDB', neo4j: 'Neo4j',
-  snowflake: 'Snowflake', bigquery: 'BigQuery', pinecone: 'Pinecone', milvus: 'Milvus',
-};
-
-/**
- * A profile-picker Select + "New Profile" button.
- * Used in SourceDestinationForm for DB-type connections.
- *
- * Props:
- *   label           - "Source Profile" | "Destination Profile"
- *   profileId       - selected profile ID (number|null)
- *   onProfileChange(id) - callback when selection changes
- *   filterProvider  - if set, only show profiles for this provider type
- */
-const ConnectionProfileSelect = ({ label, profileId, onProfileChange, filterProvider }) => {
+const ConnectionProfileSelect = ({ label = 'Connection Profile', profileId, onProfileChange, filterProvider }) => {
   const { authFetch } = useAuth();
-  const [profiles,    setProfiles]    = useState([]);
-  const [loading,     setLoading]     = useState(false);
-  const [dialogOpen,  setDialogOpen]  = useState(false);
+  const [profiles,     setProfiles]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [dialogOpen,   setDialogOpen]   = useState(false);
 
-  const fetchProfiles = async () => {
+  const load = async () => {
     setLoading(true);
     try {
-      const resp = await authFetch('/api/connections');
-      if (resp.ok) {
-        const data = await resp.json();
-        setProfiles(filterProvider ? data.filter(p => p.provider === filterProvider) : data);
+      const res = await authFetch('/api/connections');
+      if (res.ok) {
+        const all = await res.json();
+        setProfiles(filterProvider ? all.filter(p => p.provider === filterProvider) : all);
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchProfiles(); }, [filterProvider]);
+  useEffect(() => { load(); }, [filterProvider]);
 
-  const handleSaved = (newProfile) => {
-    fetchProfiles();
-    if (newProfile) onProfileChange(newProfile.id);
-  };
+  const handleSaved = () => { setDialogOpen(false); load(); };
 
   return (
-    <>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <FormControl fullWidth>
-          <InputLabel>{label}</InputLabel>
-          <Select
-            value={profileId || ''}
-            onChange={(e) => onProfileChange(e.target.value || null)}
-            label={label}
-            endAdornment={loading ? <CircularProgress size={18} sx={{ mr: 2 }} /> : null}
+    <div>
+      <label className="block text-xs text-[var(--text-muted)] mb-1">{label}</label>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <select
+            value={profileId ?? ''}
+            onChange={e => onProfileChange(e.target.value ? Number(e.target.value) : null)}
+            disabled={loading}
+            className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors disabled:opacity-60 appearance-none pr-8"
           >
-            <MenuItem value=""><em>None</em></MenuItem>
-            {profiles.map(p => (
-              <MenuItem key={p.id} value={p.id}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <span style={{ fontWeight: 500 }}>{p.name}</span>
-                  <span style={{ fontSize: 12, color: '#888' }}>
-                    ({PROVIDER_LABELS[p.provider] || p.provider} — {p.host || p.provider}{p.databaseName ? `/${p.databaseName}` : ''})
-                  </span>
-                  {p.lastTestedAt && (
-                    <span style={{ fontSize: 11, color: p.lastTestSucceeded ? '#4caf50' : '#f44336' }}>
-                      {p.lastTestSucceeded ? '✓' : '✗'}
-                    </span>
-                  )}
-                </Stack>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <Tooltip title="New Profile">
-          <IconButton onClick={() => setDialogOpen(true)} color="primary">
-            <AddCircleOutlineIcon />
-          </IconButton>
-        </Tooltip>
-      </Stack>
-
-      <ConnectionProfileDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onSaved={handleSaved}
-      />
-    </>
+            <option value="">— none —</option>
+            {profiles.map(p => <option key={p.id} value={p.id}>{p.name} ({p.provider})</option>)}
+          </select>
+          {loading && <Loader2 size={13} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-[var(--text-muted)]" />}
+        </div>
+        <button onClick={() => setDialogOpen(true)} title="Add new profile"
+          className="p-2 text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors flex-shrink-0">
+          <PlusCircle size={16} />
+        </button>
+      </div>
+      <ConnectionProfileDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={handleSaved} profileId={null} />
+    </div>
   );
 };
 
