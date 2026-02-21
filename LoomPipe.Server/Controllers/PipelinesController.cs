@@ -66,7 +66,7 @@ namespace LoomPipe.Server.Controllers
                 {
                     p.Id, p.Name, p.Source, p.Destination,
                     p.FieldMappings, p.Transformations,
-                    p.ScheduleEnabled, p.ScheduleIntervalMinutes, p.NextRunAt,
+                    p.ScheduleEnabled, p.CronExpression, p.NextRunAt,
                     p.BatchSize, p.BatchDelaySeconds, p.CreatedAt,
                     LastRunStatus    = last?.Status,
                     LastRunAt        = last?.StartedAt,

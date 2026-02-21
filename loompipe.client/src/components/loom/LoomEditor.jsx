@@ -80,7 +80,7 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
 
   // Schedule / batch
   const [scheduleEnabled,           setScheduleEnabled]           = useState(pipeline.scheduleEnabled || false);
-  const [scheduleIntervalMinutes,   setScheduleIntervalMinutes]   = useState(pipeline.scheduleIntervalMinutes ?? '');
+  const [cronExpression,            setCronExpression]            = useState(pipeline.cronExpression ?? '');
   const [batchEnabled,              setBatchEnabled]              = useState(!!(pipeline.batchSize));
   const [batchSize,                 setBatchSize]                 = useState(pipeline.batchSize ?? '');
   const [batchDelaySeconds,         setBatchDelaySeconds]         = useState(pipeline.batchDelaySeconds ?? '');
@@ -119,10 +119,8 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
     fieldMappings,
     transformations,
     scheduleEnabled,
-    scheduleIntervalMinutes: scheduleEnabled && scheduleIntervalMinutes ? Number(scheduleIntervalMinutes) : null,
-    nextRunAt: scheduleEnabled && scheduleIntervalMinutes && !pipeline.nextRunAt
-      ? new Date(Date.now() + Number(scheduleIntervalMinutes) * 60000).toISOString()
-      : pipeline.nextRunAt ?? null,
+    cronExpression: scheduleEnabled && cronExpression ? cronExpression : null,
+    nextRunAt: pipeline.nextRunAt ?? null,
     batchSize:        batchEnabled && batchSize        ? Number(batchSize)        : null,
     batchDelaySeconds: batchEnabled && batchDelaySeconds ? Number(batchDelaySeconds) : null,
   });
@@ -266,7 +264,7 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
       {/* Schedule & Batching strip */}
       <LoomSettings
         scheduleEnabled={scheduleEnabled}         setScheduleEnabled={setScheduleEnabled}
-        scheduleIntervalMinutes={scheduleIntervalMinutes} setScheduleIntervalMinutes={setScheduleIntervalMinutes}
+        cronExpression={cronExpression}           setCronExpression={setCronExpression}
         batchEnabled={batchEnabled}               setBatchEnabled={setBatchEnabled}
         batchSize={batchSize}                     setBatchSize={setBatchSize}
         batchDelaySeconds={batchDelaySeconds}     setBatchDelaySeconds={setBatchDelaySeconds}

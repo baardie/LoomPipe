@@ -1,61 +1,81 @@
 using System;
-using System.IO;
 using System.Net;
 using System.Net.Mail;
-using System.Text.Json;
 using System.Threading.Tasks;
+using LoomPipe.Core.Entities;
 using LoomPipe.Core.Interfaces;
 using LoomPipe.Core.Settings;
+using LoomPipe.Storage.Interfaces;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 
 namespace LoomPipe.Services
 {
     /// <summary>
     /// SMTP-based implementation of <see cref="IEmailNotificationService"/>.
-    /// Settings are persisted to <c>email-settings.json</c> in the application content root
-    /// so that an admin can update them at runtime without restarting the server.
+    /// Settings are stored in the database; the SMTP password is encrypted at rest
+    /// using ASP.NET Core Data Protection.
     /// </summary>
     public class EmailNotificationService : IEmailNotificationService
     {
+        private const string Purpose = "LoomPipe.SmtpSettings.v1";
+
+        private readonly ISmtpSettingsRepository _repo;
+        private readonly IDataProtector _protector;
         private readonly ILogger<EmailNotificationService> _logger;
-        private readonly string _settingsPath;
 
-        private static readonly JsonSerializerOptions _jsonOpts = new()
+        public EmailNotificationService(
+            ISmtpSettingsRepository repo,
+            IDataProtectionProvider dpProvider,
+            ILogger<EmailNotificationService> logger)
         {
-            WriteIndented            = true,
-            PropertyNameCaseInsensitive = true,
-        };
-
-        public EmailNotificationService(ILogger<EmailNotificationService> logger, string settingsPath)
-        {
-            _logger      = logger;
-            _settingsPath = settingsPath;
+            _repo      = repo;
+            _protector = dpProvider.CreateProtector(Purpose);
+            _logger    = logger;
         }
 
         // ── Settings persistence ──────────────────────────────────────────────
 
-        public EmailSettings GetSettings()
+        public async Task<EmailSettings> GetSettingsAsync()
         {
-            try
+            var row = await _repo.GetAsync();
+            if (row == null) return new EmailSettings();
+
+            return new EmailSettings
             {
-                if (File.Exists(_settingsPath))
-                {
-                    var json = File.ReadAllText(_settingsPath);
-                    return JsonSerializer.Deserialize<EmailSettings>(json, _jsonOpts) ?? new EmailSettings();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not load email settings from '{Path}'. Using defaults.", _settingsPath);
-            }
-            return new EmailSettings();
+                Enabled         = row.Enabled,
+                SmtpHost        = row.SmtpHost,
+                SmtpPort        = row.SmtpPort,
+                EnableSsl       = row.EnableSsl,
+                Username        = row.Username,
+                Password        = DecryptPassword(row.EncryptedPassword),
+                FromAddress     = row.FromAddress,
+                FromName        = row.FromName,
+                AdminEmail      = row.AdminEmail,
+                NotifyOnFailure = row.NotifyOnFailure,
+                NotifyOnSuccess = row.NotifyOnSuccess,
+            };
         }
 
-        public void SaveSettings(EmailSettings settings)
+        public async Task SaveSettingsAsync(EmailSettings settings)
         {
-            var json = JsonSerializer.Serialize(settings, _jsonOpts);
-            File.WriteAllText(_settingsPath, json);
-            _logger.LogInformation("Email settings saved to '{Path}'.", _settingsPath);
+            var row = new SmtpSettings
+            {
+                Enabled           = settings.Enabled,
+                SmtpHost          = settings.SmtpHost,
+                SmtpPort          = settings.SmtpPort,
+                EnableSsl         = settings.EnableSsl,
+                Username          = settings.Username,
+                EncryptedPassword = EncryptPassword(settings.Password),
+                FromAddress       = settings.FromAddress,
+                FromName          = settings.FromName,
+                AdminEmail        = settings.AdminEmail,
+                NotifyOnFailure   = settings.NotifyOnFailure,
+                NotifyOnSuccess   = settings.NotifyOnSuccess,
+            };
+
+            await _repo.SaveAsync(row);
+            _logger.LogInformation("Email settings saved to database.");
         }
 
         // ── Notifications ─────────────────────────────────────────────────────
@@ -65,13 +85,12 @@ namespace LoomPipe.Services
             string errorMessage, string stage,
             string triggeredBy, DateTime failedAt)
         {
-            var cfg = GetSettings();
+            var cfg = await GetSettingsAsync();
             if (!cfg.Enabled || !cfg.NotifyOnFailure || string.IsNullOrWhiteSpace(cfg.AdminEmail))
                 return;
 
             var subject = $"[LoomPipe] Pipeline Failed: {pipelineName}";
             var body    = BuildFailureBody(pipelineName, pipelineId, errorMessage, stage, triggeredBy, failedAt);
-
             await SendAsync(cfg, subject, body);
         }
 
@@ -79,19 +98,18 @@ namespace LoomPipe.Services
             string pipelineName, int pipelineId,
             int rowsProcessed, string triggeredBy, DateTime completedAt)
         {
-            var cfg = GetSettings();
+            var cfg = await GetSettingsAsync();
             if (!cfg.Enabled || !cfg.NotifyOnSuccess || string.IsNullOrWhiteSpace(cfg.AdminEmail))
                 return;
 
             var subject = $"[LoomPipe] Pipeline Succeeded: {pipelineName}";
             var body    = BuildSuccessBody(pipelineName, pipelineId, rowsProcessed, triggeredBy, completedAt);
-
             await SendAsync(cfg, subject, body);
         }
 
         public async Task<bool> TestConnectionAsync()
         {
-            var cfg = GetSettings();
+            var cfg = await GetSettingsAsync();
             try
             {
                 var subject = "[LoomPipe] Email Configuration Test";
@@ -144,6 +162,28 @@ namespace LoomPipe.Services
             {
                 _logger.LogError(ex, "SMTP delivery failed for '{Subject}' → {AdminEmail}.", subject, cfg.AdminEmail);
                 throw;
+            }
+        }
+
+        // ── Encryption helpers ────────────────────────────────────────────────
+
+        private string EncryptPassword(string? password)
+        {
+            if (string.IsNullOrEmpty(password)) return string.Empty;
+            return _protector.Protect(password);
+        }
+
+        private string DecryptPassword(string encrypted)
+        {
+            if (string.IsNullOrEmpty(encrypted)) return string.Empty;
+            try
+            {
+                return _protector.Unprotect(encrypted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to decrypt SMTP password.");
+                return string.Empty;
             }
         }
 

@@ -6,14 +6,15 @@ namespace LoomPipe.Core.Interfaces
 {
     /// <summary>
     /// Sends pipeline event notifications via SMTP and manages the persisted email configuration.
+    /// Settings are stored in the database with the SMTP password encrypted via Data Protection.
     /// </summary>
     public interface IEmailNotificationService
     {
-        /// <summary>Returns the current email settings (loaded from disk).</summary>
-        EmailSettings GetSettings();
+        /// <summary>Returns the current email settings (loaded from the database).</summary>
+        Task<EmailSettings> GetSettingsAsync();
 
-        /// <summary>Persists updated email settings to disk.</summary>
-        void SaveSettings(EmailSettings settings);
+        /// <summary>Persists updated email settings to the database.</summary>
+        Task SaveSettingsAsync(EmailSettings settings);
 
         /// <summary>Sends a failure notification to the configured admin email if enabled.</summary>
         Task SendPipelineFailureAsync(string pipelineName, int pipelineId, string errorMessage, string stage, string triggeredBy, DateTime failedAt);

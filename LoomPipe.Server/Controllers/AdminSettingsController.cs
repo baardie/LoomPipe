@@ -9,7 +9,7 @@ namespace LoomPipe.Server.Controllers
 {
     /// <summary>
     /// Admin-only API for reading and writing runtime settings (email notifications, etc.).
-    /// Settings are persisted to <c>email-settings.json</c> in the server content root.
+    /// Settings are stored in the database with the SMTP password encrypted via Data Protection.
     /// </summary>
     [ApiController]
     [Route("api/admin/settings")]
@@ -31,11 +31,11 @@ namespace LoomPipe.Server.Controllers
 
         /// <summary>Returns the current email notification settings. The SMTP password is masked in the response.</summary>
         [HttpGet("email")]
-        public IActionResult GetEmailSettings()
+        public async Task<IActionResult> GetEmailSettings()
         {
-            var settings = _emailService.GetSettings();
+            var settings = await _emailService.GetSettingsAsync();
 
-            // Return a safe view — mask the password so it is not leaked to the browser
+            // Return a safe view — never send the password back to the browser
             return Ok(new
             {
                 settings.Enabled,
@@ -57,16 +57,16 @@ namespace LoomPipe.Server.Controllers
         /// Send an empty string for <c>Password</c> to keep the existing saved password.
         /// </summary>
         [HttpPut("email")]
-        public IActionResult SaveEmailSettings([FromBody] EmailSettings incoming)
+        public async Task<IActionResult> SaveEmailSettings([FromBody] EmailSettings incoming)
         {
             // If the client sends a blank password, keep the previously stored one
             if (string.IsNullOrWhiteSpace(incoming.Password))
             {
-                var existing = _emailService.GetSettings();
+                var existing = await _emailService.GetSettingsAsync();
                 incoming.Password = existing.Password;
             }
 
-            _emailService.SaveSettings(incoming);
+            await _emailService.SaveSettingsAsync(incoming);
             _logger.LogInformation("Email notification settings updated by {User}.",
                 User.Identity?.Name ?? "unknown");
 

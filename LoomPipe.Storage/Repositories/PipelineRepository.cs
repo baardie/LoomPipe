@@ -49,7 +49,7 @@ namespace LoomPipe.Storage.Repositories
             // Scalar fields
             existing.Name                    = pipeline.Name;
             existing.ScheduleEnabled         = pipeline.ScheduleEnabled;
-            existing.ScheduleIntervalMinutes = pipeline.ScheduleIntervalMinutes;
+            existing.CronExpression          = pipeline.CronExpression;
             existing.NextRunAt               = pipeline.NextRunAt;
             existing.BatchSize               = pipeline.BatchSize;
             existing.BatchDelaySeconds       = pipeline.BatchDelaySeconds;

@@ -19,7 +19,7 @@ namespace LoomPipe.Core.Entities
 
         // Scheduling
         public bool ScheduleEnabled { get; set; }
-        public int? ScheduleIntervalMinutes { get; set; }
+        public string? CronExpression { get; set; }
         public DateTime? NextRunAt { get; set; }
 
         // Batch writing

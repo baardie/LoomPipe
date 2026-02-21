@@ -118,9 +118,9 @@ const PipelinesPage = ({ pipelines, onEdit, onDelete, onRowClick, onCreate }) =>
                     />
                   </td>
                   <td className="px-4 py-2.5">
-                    {p.scheduleEnabled && p.scheduleIntervalMinutes ? (
+                    {p.scheduleEnabled && p.cronExpression ? (
                       <span className="inline-flex items-center gap-1 text-[var(--purple)]">
-                        <Clock size={11} /> every {p.scheduleIntervalMinutes}m
+                        <Clock size={11} /> {p.cronExpression}
                       </span>
                     ) : (
                       <span className="text-[var(--text-muted)]">–</span>

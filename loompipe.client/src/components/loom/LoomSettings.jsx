@@ -4,7 +4,7 @@ import RoleGuard from '../auth/RoleGuard';
 
 const inputCls = "bg-[var(--bg-elevated)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors w-40";
 
-const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, scheduleIntervalMinutes, setScheduleIntervalMinutes, batchEnabled, setBatchEnabled, batchSize, setBatchSize, batchDelaySeconds, setBatchDelaySeconds }) => {
+const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, cronExpression, setCronExpression, batchEnabled, setBatchEnabled, batchSize, setBatchSize, batchDelaySeconds, setBatchDelaySeconds }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -30,11 +30,10 @@ const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, scheduleIntervalMin
                 Enable Schedule
               </label>
               {scheduleEnabled && (
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-[var(--text-muted)]">Every</label>
-                  <input type="number" min={1} value={scheduleIntervalMinutes} onChange={e => setScheduleIntervalMinutes(e.target.value)}
-                    className={inputCls} placeholder="60" />
-                  <label className="text-xs text-[var(--text-muted)]">minutes</label>
+                <div className="flex flex-col gap-1">
+                  <input type="text" value={cronExpression} onChange={e => setCronExpression(e.target.value)}
+                    className={inputCls} placeholder="0 * * * *" />
+                  <label className="text-xs text-[var(--text-muted)]">Cron expression (min hour day month weekday)</label>
                 </div>
               )}
             </div>

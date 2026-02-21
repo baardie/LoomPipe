@@ -1,3 +1,4 @@
+using Cronos;
 using LoomPipe.Core.Entities;
 using LoomPipe.Core.Enums;
 using LoomPipe.Core.Exceptions;
@@ -155,10 +156,20 @@ namespace LoomPipe.Workers
                         }
                     }
 
-                    // Advance NextRunAt
-                    if (pipeline.ScheduleIntervalMinutes.HasValue && pipeline.ScheduleIntervalMinutes.Value > 0)
+                    // Advance NextRunAt using the cron expression
+                    if (!string.IsNullOrWhiteSpace(pipeline.CronExpression))
                     {
-                        pipeline.NextRunAt = now.AddMinutes(pipeline.ScheduleIntervalMinutes.Value);
+                        try
+                        {
+                            var cron = CronExpression.Parse(pipeline.CronExpression, CronFormat.Standard);
+                            pipeline.NextRunAt = cron.GetNextOccurrence(now, TimeZoneInfo.Utc);
+                        }
+                        catch (CronFormatException ex)
+                        {
+                            _logger.LogError(ex, "Invalid cron expression '{Expr}' on pipeline '{Name}'; schedule disabled.",
+                                pipeline.CronExpression, pipeline.Name);
+                            pipeline.ScheduleEnabled = false;
+                        }
                         await pipelineRepo.UpdateAsync(pipeline);
                     }
                 }

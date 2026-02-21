@@ -191,13 +191,13 @@ namespace LoomPipe.Storage.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CronExpression")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("NextRunAt")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("ScheduleEnabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("ScheduleIntervalMinutes")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("SourceId")
@@ -250,6 +250,55 @@ namespace LoomPipe.Storage.Migrations
                     b.HasIndex("PipelineId");
 
                     b.ToTable("PipelineRunLogs");
+                });
+
+            modelBuilder.Entity("LoomPipe.Core.Entities.SmtpSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SmtpHost")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SmtpPort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("EnableSsl")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EncryptedPassword")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FromName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AdminEmail")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("NotifyOnFailure")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("NotifyOnSuccess")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SmtpSettings");
                 });
 
             modelBuilder.Entity("LoomPipe.Core.Entities.UserConnectionPermission", b =>

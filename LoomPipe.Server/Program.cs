@@ -72,15 +72,10 @@ builder.Services.AddScoped<IConnectorFactory, ConnectorFactory>();
 builder.Services.AddScoped<LoomPipe.Core.Interfaces.IAppUserRepository, LoomPipe.Storage.Repositories.AppUserRepository>();
 builder.Services.AddScoped<LoomPipe.Core.Interfaces.IPipelineRunLogRepository, LoomPipe.Storage.Repositories.PipelineRunLogRepository>();
 builder.Services.AddScoped<LoomPipe.Core.Interfaces.IUserConnectionPermissionRepository, LoomPipe.Storage.Repositories.UserConnectionPermissionRepository>();
+builder.Services.AddScoped<LoomPipe.Storage.Interfaces.ISmtpSettingsRepository, LoomPipe.Storage.Repositories.SmtpSettingsRepository>();
+builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>();
 builder.Services.AddHostedService<ConnectorWorker>();
 builder.Services.AddHttpClient();
-
-// ── Email notification service (singleton — reads/writes a settings file) ────
-var emailSettingsPath = Path.Combine(builder.Environment.ContentRootPath, "email-settings.json");
-builder.Services.AddSingleton<IEmailNotificationService>(sp =>
-    new EmailNotificationService(
-        sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<EmailNotificationService>>(),
-        emailSettingsPath));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

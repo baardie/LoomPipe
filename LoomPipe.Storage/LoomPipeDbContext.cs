@@ -15,6 +15,7 @@ namespace LoomPipe.Storage
         public DbSet<AppUser> AppUsers { get; set; }
         public DbSet<PipelineRunLog> PipelineRunLogs { get; set; }
         public DbSet<UserConnectionPermission> UserConnectionPermissions { get; set; }
+        public DbSet<SmtpSettings> SmtpSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
