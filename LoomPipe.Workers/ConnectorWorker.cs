@@ -97,10 +97,11 @@ namespace LoomPipe.Workers
                         continue;
                     }
 
+                    var runStartTime = DateTime.UtcNow;
                     var log = new PipelineRunLog
                     {
                         PipelineId  = pipeline.Id,
-                        StartedAt   = DateTime.UtcNow,
+                        StartedAt   = runStartTime,
                         Status      = "Running",
                         TriggeredBy = "scheduler",
                     };
@@ -118,6 +119,11 @@ namespace LoomPipe.Workers
                         log.RowsProcessed = rows;
                         await runLogRepo.UpdateAsync(log);
                         _logger.LogInformation("Scheduled pipeline '{Name}' completed ({Rows} rows).", pipeline.Name, rows);
+
+                        // Advance the incremental watermark to the start of this run so next
+                        // run only fetches records modified after this point.
+                        if (!string.IsNullOrWhiteSpace(pipeline.IncrementalField))
+                            pipeline.LastIncrementalValue = runStartTime.ToString("o");
 
                         try
                         {

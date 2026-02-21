@@ -16,6 +16,7 @@ namespace LoomPipe.Storage
         public DbSet<PipelineRunLog> PipelineRunLogs { get; set; }
         public DbSet<UserConnectionPermission> UserConnectionPermissions { get; set; }
         public DbSet<SmtpSettings> SmtpSettings { get; set; }
+        public DbSet<ApiKey> ApiKeys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +54,15 @@ namespace LoomPipe.Storage
 
             modelBuilder.Entity<PipelineRunLog>()
                 .HasIndex(r => r.PipelineId);
+
+            modelBuilder.Entity<ApiKey>(entity =>
+            {
+                entity.HasIndex(k => k.KeyHash).IsUnique();
+                entity.HasOne(k => k.AppUser)
+                      .WithMany()
+                      .HasForeignKey(k => k.AppUserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Pipeline>(entity =>
             {

@@ -12,11 +12,15 @@ namespace LoomPipe.Core.Interfaces
     public interface ISourceReader
     {
         /// <summary>
-        /// Asynchronously reads all data from the source.
+        /// Asynchronously reads data from the source.
+        /// When <paramref name="watermarkField"/> and <paramref name="watermarkValue"/> are provided,
+        /// only records where <c>watermarkField &gt; watermarkValue</c> are returned (incremental load).
+        /// Readers that do not support watermark filtering silently ignore these parameters.
         /// </summary>
-        /// <param name="config">The data source configuration.</param>
-        /// <returns>A collection of data records, typically as dynamic objects.</returns>
-        Task<IEnumerable<object>> ReadAsync(DataSourceConfig config);
+        Task<IEnumerable<object>> ReadAsync(
+            DataSourceConfig config,
+            string? watermarkField = null,
+            string? watermarkValue = null);
 
         /// <summary>
         /// Asynchronously discovers the schema of the source.

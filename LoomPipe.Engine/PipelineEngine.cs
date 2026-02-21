@@ -48,7 +48,10 @@ namespace LoomPipe.Engine
                     "Stage [SourceRead] — reading from '{SourceName}' ({SourceType}).",
                     pipeline.Source?.Name, pipeline.Source?.Type);
 
-                sourceData = await _sourceReader.ReadAsync(pipeline.Source);
+                sourceData = await _sourceReader.ReadAsync(
+                    pipeline.Source,
+                    pipeline.IncrementalField,
+                    pipeline.LastIncrementalValue);
             }
             catch (Exception ex) when (ex is not PipelineExecutionException)
             {

@@ -25,5 +25,9 @@ namespace LoomPipe.Core.Entities
         // Batch writing
         public int? BatchSize { get; set; }
         public int? BatchDelaySeconds { get; set; }
+
+        // Incremental / delta load
+        public string? IncrementalField { get; set; }      // Column to watermark on (null = full load)
+        public string? LastIncrementalValue { get; set; }  // Last successfully processed watermark value
     }
 }

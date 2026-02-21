@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2, Save, Send, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, Save, Send, CheckCircle2, AlertCircle, Eye, EyeOff, Plus, Trash2, Copy, Check, KeyRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Field = ({ label, hint, children }) => (
@@ -38,6 +38,158 @@ const Toggle = ({ checked, onChange, label, description }) => (
     </div>
   </label>
 );
+
+// ── API Keys section ──────────────────────────────────────────────────────────
+
+const ApiKeysCard = () => {
+  const { authFetch } = useAuth();
+  const [keys, setKeys]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [creating, setCreating]   = useState(false);
+  const [newName, setNewName]     = useState('');
+  const [newExpiry, setNewExpiry] = useState('');
+  const [showForm, setShowForm]   = useState(false);
+  const [rawKey, setRawKey]       = useState(null);   // one-time display
+  const [copied, setCopied]       = useState(false);
+  const [revoking, setRevoking]   = useState(null);   // id being revoked
+
+  const load = useCallback(() => {
+    setLoading(true);
+    authFetch('/api/apikeys')
+      .then(r => r.ok ? r.json() : [])
+      .then(setKeys)
+      .finally(() => setLoading(false));
+  }, [authFetch]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      const res  = await authFetch('/api/apikeys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), expiresAt: newExpiry || null }),
+      });
+      const data = await res.json();
+      setRawKey(data.rawKey);
+      setNewName('');
+      setNewExpiry('');
+      setShowForm(false);
+      load();
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRevoke = async (id) => {
+    setRevoking(id);
+    await authFetch(`/api/apikeys/${id}`, { method: 'DELETE' });
+    setRevoking(null);
+    load();
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(rawKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString() : '—';
+
+  return (
+    <section className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-[var(--text-secondary)]">API Keys</h2>
+        <button
+          onClick={() => setShowForm(f => !f)}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] rounded transition-colors"
+        >
+          <Plus size={11} /> New Key
+        </button>
+      </div>
+
+      {/* New key form */}
+      {showForm && (
+        <div className="mb-4 p-3 rounded-md bg-[var(--bg-elevated)] border border-[var(--border)] flex flex-col gap-2">
+          <input
+            className="w-full px-3 py-2 text-xs rounded bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            placeholder="Key name (e.g. ci-pipeline)"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+          />
+          <input
+            type="date"
+            className="w-full px-3 py-2 text-xs rounded bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            placeholder="Expires (optional)"
+            value={newExpiry}
+            onChange={e => setNewExpiry(e.target.value)}
+          />
+          <button
+            onClick={handleCreate}
+            disabled={creating || !newName.trim()}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-white rounded transition-colors disabled:opacity-60"
+          >
+            {creating ? <Loader2 size={11} className="animate-spin" /> : <KeyRound size={11} />}
+            Generate
+          </button>
+        </div>
+      )}
+
+      {/* One-time key reveal */}
+      {rawKey && (
+        <div className="mb-4 p-3 rounded-md bg-green-900/20 border border-green-800/40">
+          <p className="text-[10px] text-[var(--green)] font-semibold mb-1.5">
+            Copy this key — it will not be shown again.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-[10px] font-mono text-[var(--text-primary)] bg-[var(--bg-elevated)] px-2 py-1.5 rounded break-all">
+              {rawKey}
+            </code>
+            <button onClick={handleCopy} className="shrink-0 p-1.5 text-[var(--text-secondary)] hover:text-[var(--green)] transition-colors">
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+          </div>
+          <button onClick={() => setRawKey(null)} className="mt-2 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Keys table */}
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-[var(--accent)]" /></div>
+      ) : keys.length === 0 ? (
+        <p className="text-xs text-[var(--text-muted)] py-2">No API keys yet.</p>
+      ) : (
+        <div className="divide-y divide-[var(--border)]">
+          {keys.map(k => (
+            <div key={k.id} className="flex items-center gap-3 py-2.5 text-xs">
+              <KeyRound size={13} className="text-[var(--text-muted)] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-[var(--text-primary)]">{k.name}</span>
+                <span className="ml-2 text-[var(--text-muted)]">Created {fmt(k.createdAt)}</span>
+                {k.lastUsedAt && <span className="ml-2 text-[var(--text-muted)]">· Last used {fmt(k.lastUsedAt)}</span>}
+                {k.expiresAt  && <span className="ml-2 text-[var(--text-muted)]">· Expires {fmt(k.expiresAt)}</span>}
+              </div>
+              <button
+                onClick={() => handleRevoke(k.id)}
+                disabled={revoking === k.id}
+                className="shrink-0 p-1 text-[var(--text-muted)] hover:text-[var(--red)] transition-colors disabled:opacity-40"
+                title="Revoke"
+              >
+                {revoking === k.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
   const { authFetch } = useAuth();
@@ -147,6 +299,9 @@ const SettingsPage = () => {
           {feedback.message}
         </div>
       )}
+
+      {/* ── API Keys ────────────────────────────────────────────────────── */}
+      <ApiKeysCard />
 
       {/* ── Email Notifications ─────────────────────────────────────────── */}
       <section className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-5 mb-6">

@@ -28,7 +28,7 @@ namespace LoomPipe.Connectors
             _logger = logger;
         }
 
-        public async Task<IEnumerable<object>> ReadAsync(DataSourceConfig config)
+        public async Task<IEnumerable<object>> ReadAsync(DataSourceConfig config, string? watermarkField = null, string? watermarkValue = null)
         {
             _logger.LogInformation("Reading from MongoDB collection '{Collection}'.", GetCollection(config));
             try

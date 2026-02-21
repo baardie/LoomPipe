@@ -32,7 +32,7 @@ namespace LoomPipe.Connectors
             _logger = logger;
         }
 
-        public async Task<IEnumerable<object>> ReadAsync(DataSourceConfig config)
+        public async Task<IEnumerable<object>> ReadAsync(DataSourceConfig config, string? watermarkField = null, string? watermarkValue = null)
         {
             var (mode, label) = ResolveMode(config);
             _logger.LogInformation("JSON source reading ({Mode}): {Label}", mode, label);

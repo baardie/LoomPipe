@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.Common;
 using System.Dynamic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LoomPipe.Core.Entities;
 using LoomPipe.Core.Exceptions;
@@ -27,20 +28,45 @@ namespace LoomPipe.Connectors
         private readonly string _provider;
         private readonly ILogger _logger;
 
+        // Allow only safe column-name characters to prevent SQL injection in the WHERE clause
+        private static readonly Regex SafeIdentifier = new(@"^[\w.]+$", RegexOptions.Compiled);
+
         public RelationalDbReader(string provider, ILogger<RelationalDbReader> logger)
         {
             _provider = provider.ToLowerInvariant();
             _logger = logger;
         }
 
-        public async Task<IEnumerable<object>> ReadAsync(DataSourceConfig config)
+        public async Task<IEnumerable<object>> ReadAsync(
+            DataSourceConfig config,
+            string? watermarkField = null,
+            string? watermarkValue = null)
         {
-            _logger.LogInformation("Reading from {Provider} table '{Table}'.", _provider, GetTable(config));
+            var table = GetTable(config);
+            _logger.LogInformation("Reading from {Provider} table '{Table}' (incremental={Inc}).",
+                _provider, table, watermarkField != null);
             try
             {
                 await using var conn = CreateConnection(config.ConnectionString);
                 await conn.OpenAsync();
-                return await ExecuteQueryAsync(conn, $"SELECT * FROM {GetTable(config)}");
+
+                // Incremental load — append WHERE when both field and prior value are supplied
+                if (!string.IsNullOrWhiteSpace(watermarkField)
+                    && !string.IsNullOrWhiteSpace(watermarkValue)
+                    && IsValidIdentifier(watermarkField))
+                {
+                    await using var cmd = conn.CreateCommand();
+                    // Oracle uses :param, everything else uses @param
+                    var pName = _provider == "oracle" ? ":wm" : "@wm";
+                    cmd.CommandText = $"SELECT * FROM {table} WHERE {watermarkField} > {pName}";
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = pName;
+                    p.Value = watermarkValue;
+                    cmd.Parameters.Add(p);
+                    return await ReadCommandAsync(cmd);
+                }
+
+                return await ExecuteQueryAsync(conn, $"SELECT * FROM {table}");
             }
             catch (Exception ex)
             {
@@ -87,6 +113,8 @@ namespace LoomPipe.Connectors
 
         // ── Helpers ──────────────────────────────────────────────────────────
 
+        private static bool IsValidIdentifier(string name) => SafeIdentifier.IsMatch(name);
+
         private DbConnection CreateConnection(string cs) => _provider switch
         {
             "sqlserver"  => new SqlConnection(cs),
@@ -110,6 +138,11 @@ namespace LoomPipe.Connectors
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
+            return await ReadCommandAsync(cmd);
+        }
+
+        private static async Task<List<object>> ReadCommandAsync(DbCommand cmd)
+        {
             await using var reader = await cmd.ExecuteReaderAsync();
             var results = new List<object>();
             while (await reader.ReadAsync())

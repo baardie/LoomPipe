@@ -4,7 +4,16 @@ import RoleGuard from '../auth/RoleGuard';
 
 const inputCls = "bg-[var(--bg-elevated)] border border-[var(--border)] rounded px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-colors w-40";
 
-const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, cronExpression, setCronExpression, batchEnabled, setBatchEnabled, batchSize, setBatchSize, batchDelaySeconds, setBatchDelaySeconds }) => {
+const LoomSettings = ({
+  scheduleEnabled, setScheduleEnabled,
+  cronExpression, setCronExpression,
+  batchEnabled, setBatchEnabled,
+  batchSize, setBatchSize,
+  batchDelaySeconds, setBatchDelaySeconds,
+  incrementalEnabled, setIncrementalEnabled,
+  incrementalField, setIncrementalField,
+  lastIncrementalValue,
+}) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -15,12 +24,12 @@ const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, cronExpression, set
           className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
         >
           <Settings size={13} />
-          Schedule &amp; Batching
+          Schedule, Batching &amp; Incremental
           <ChevronDown size={12} className={`ml-auto transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
 
         {expanded && (
-          <div className="px-4 pb-4 grid grid-cols-2 gap-6 border-t border-[var(--border)] pt-3">
+          <div className="px-4 pb-4 grid grid-cols-3 gap-6 border-t border-[var(--border)] pt-3">
             {/* Schedule */}
             <div className="flex flex-col gap-3">
               <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Schedule</div>
@@ -60,6 +69,37 @@ const LoomSettings = ({ scheduleEnabled, setScheduleEnabled, cronExpression, set
                       className={inputCls} placeholder="0" />
                     <label className="text-xs text-[var(--text-muted)]">seconds</label>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Incremental Load */}
+            <div className="flex flex-col gap-3">
+              <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Incremental Load</div>
+              <label className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer">
+                <input type="checkbox" checked={incrementalEnabled} onChange={e => setIncrementalEnabled(e.target.checked)}
+                  style={{ accentColor: 'var(--accent)' }} />
+                Enable Incremental Load
+              </label>
+              {incrementalEnabled && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
+                    <input
+                      type="text"
+                      value={incrementalField}
+                      onChange={e => setIncrementalField(e.target.value)}
+                      className={inputCls}
+                      placeholder="updated_at"
+                    />
+                    <label className="text-xs text-[var(--text-muted)]">Watermark column name</label>
+                  </div>
+                  {lastIncrementalValue && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--text-muted)] font-mono truncate" title={lastIncrementalValue}>
+                        Last sync: {lastIncrementalValue.slice(0, 19).replace('T', ' ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

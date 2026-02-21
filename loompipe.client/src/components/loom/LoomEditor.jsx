@@ -78,12 +78,14 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
   const [fieldMappings,             setFieldMappings]             = useState(pipeline.fieldMappings || []);
   const [transformations,           setTransformations]           = useState(pipeline.transformations || []);
 
-  // Schedule / batch
+  // Schedule / batch / incremental
   const [scheduleEnabled,           setScheduleEnabled]           = useState(pipeline.scheduleEnabled || false);
   const [cronExpression,            setCronExpression]            = useState(pipeline.cronExpression ?? '');
   const [batchEnabled,              setBatchEnabled]              = useState(!!(pipeline.batchSize));
   const [batchSize,                 setBatchSize]                 = useState(pipeline.batchSize ?? '');
   const [batchDelaySeconds,         setBatchDelaySeconds]         = useState(pipeline.batchDelaySeconds ?? '');
+  const [incrementalEnabled,        setIncrementalEnabled]        = useState(!!(pipeline.incrementalField));
+  const [incrementalField,          setIncrementalField]          = useState(pipeline.incrementalField ?? '');
 
   // UI state
   const [activePanel,   setActivePanel]   = useState(null);
@@ -123,6 +125,8 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
     nextRunAt: pipeline.nextRunAt ?? null,
     batchSize:        batchEnabled && batchSize        ? Number(batchSize)        : null,
     batchDelaySeconds: batchEnabled && batchDelaySeconds ? Number(batchDelaySeconds) : null,
+    incrementalField: incrementalEnabled && incrementalField ? incrementalField : null,
+    lastIncrementalValue: pipeline.lastIncrementalValue ?? null,
   });
 
   const handleSave = async () => {
@@ -261,13 +265,16 @@ const LoomEditor = ({ onSave, onCancel, pipeline = {} }) => {
         )}
       </div>
 
-      {/* Schedule & Batching strip */}
+      {/* Schedule, Batching & Incremental strip */}
       <LoomSettings
         scheduleEnabled={scheduleEnabled}         setScheduleEnabled={setScheduleEnabled}
         cronExpression={cronExpression}           setCronExpression={setCronExpression}
         batchEnabled={batchEnabled}               setBatchEnabled={setBatchEnabled}
         batchSize={batchSize}                     setBatchSize={setBatchSize}
         batchDelaySeconds={batchDelaySeconds}     setBatchDelaySeconds={setBatchDelaySeconds}
+        incrementalEnabled={incrementalEnabled}   setIncrementalEnabled={setIncrementalEnabled}
+        incrementalField={incrementalField}       setIncrementalField={setIncrementalField}
+        lastIncrementalValue={pipeline.lastIncrementalValue}
       />
 
       <DryRunResultModal open={dryRunOpen} onClose={() => setDryRunOpen(false)} dryRunResult={dryRunResult} />

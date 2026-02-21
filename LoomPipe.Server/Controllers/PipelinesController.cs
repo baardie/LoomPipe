@@ -67,7 +67,9 @@ namespace LoomPipe.Server.Controllers
                     p.Id, p.Name, p.Source, p.Destination,
                     p.FieldMappings, p.Transformations,
                     p.ScheduleEnabled, p.CronExpression, p.NextRunAt,
-                    p.BatchSize, p.BatchDelaySeconds, p.CreatedAt,
+                    p.BatchSize, p.BatchDelaySeconds,
+                    p.IncrementalField, p.LastIncrementalValue,
+                    p.CreatedAt,
                     LastRunStatus    = last?.Status,
                     LastRunAt        = last?.StartedAt,
                     LastErrorMessage = last?.ErrorMessage,
@@ -133,11 +135,12 @@ namespace LoomPipe.Server.Controllers
                 return BadRequest(ex.Message);
             }
 
-            var triggeredBy = User.FindFirstValue(ClaimTypes.Name) ?? "system";
+            var triggeredBy  = User.FindFirstValue(ClaimTypes.Name) ?? "system";
+            var runStartTime = DateTime.UtcNow;
             var log = new PipelineRunLog
             {
                 PipelineId  = pipeline.Id,
-                StartedAt   = DateTime.UtcNow,
+                StartedAt   = runStartTime,
                 Status      = "Running",
                 TriggeredBy = triggeredBy,
             };
@@ -154,6 +157,13 @@ namespace LoomPipe.Server.Controllers
                 log.Status        = "Success";
                 log.RowsProcessed = rows;
                 await _runLogRepo.UpdateAsync(log);
+
+                // Advance incremental watermark
+                if (!string.IsNullOrWhiteSpace(pipeline.IncrementalField))
+                {
+                    pipeline.LastIncrementalValue = runStartTime.ToString("o");
+                    await _pipelineRepository.UpdateAsync(pipeline);
+                }
 
                 _ = NotifySuccessAsync(pipeline, rows, triggeredBy, log.FinishedAt.Value);
 

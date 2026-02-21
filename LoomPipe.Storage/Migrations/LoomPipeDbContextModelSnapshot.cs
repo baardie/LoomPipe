@@ -17,6 +17,45 @@ namespace LoomPipe.Storage.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
 
+            modelBuilder.Entity("LoomPipe.Core.Entities.ApiKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("KeyHash")
+                        .IsUnique();
+
+                    b.ToTable("ApiKeys");
+                });
+
             modelBuilder.Entity("LoomPipe.Core.Entities.AppUser", b =>
                 {
                     b.Property<int>("Id")
@@ -194,6 +233,12 @@ namespace LoomPipe.Storage.Migrations
                     b.Property<string>("CronExpression")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("IncrementalField")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastIncrementalValue")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("NextRunAt")
                         .HasColumnType("TEXT");
 
@@ -312,6 +357,17 @@ namespace LoomPipe.Storage.Migrations
                     b.HasKey("UserId", "ConnectionProfileId");
 
                     b.ToTable("UserConnectionPermissions");
+                });
+
+            modelBuilder.Entity("LoomPipe.Core.Entities.ApiKey", b =>
+                {
+                    b.HasOne("LoomPipe.Core.Entities.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
                 });
 
             modelBuilder.Entity("LoomPipe.Core.Entities.FieldMap", b =>
