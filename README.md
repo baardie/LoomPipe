@@ -412,3 +412,4 @@ If LoomPipe saved you from writing another bespoke ETL script at 2am, consider b
 
 Business Source License 1.1 — see [LICENSE](LICENSE) for details.
 Made with ☕ by [Luke Baard](mailto:lukebaard@outlook.com)
+https://www.linkedin.com/in/lukebaard/
