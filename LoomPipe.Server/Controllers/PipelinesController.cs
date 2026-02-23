@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using LoomPipe.Core.DTOs;
 using LoomPipe.Core.Entities;
@@ -26,12 +28,18 @@ namespace LoomPipe.Server.Controllers
     [Authorize]
     public class PipelinesController : ControllerBase
     {
+        private static readonly JsonSerializerOptions _snapshotOpts = new()
+        {
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+        };
+
         private readonly IPipelineRepository _pipelineRepository;
         private readonly IConnectorFactory _connectorFactory;
         private readonly IConnectionProfileService _connectionProfileService;
         private readonly IPipelineRunLogRepository _runLogRepo;
         private readonly IEmailNotificationService _emailNotificationService;
         private readonly INotificationRepository _notifRepo;
+        private readonly ISystemSettingsRepository _systemSettingsRepo;
         private readonly ILogger<PipelinesController> _logger;
 
         public PipelinesController(
@@ -41,6 +49,7 @@ namespace LoomPipe.Server.Controllers
             IPipelineRunLogRepository runLogRepo,
             IEmailNotificationService emailNotificationService,
             INotificationRepository notifRepo,
+            ISystemSettingsRepository systemSettingsRepo,
             ILogger<PipelinesController> logger)
         {
             _pipelineRepository       = pipelineRepository;
@@ -49,6 +58,7 @@ namespace LoomPipe.Server.Controllers
             _runLogRepo               = runLogRepo;
             _emailNotificationService = emailNotificationService;
             _notifRepo                = notifRepo;
+            _systemSettingsRepo       = systemSettingsRepo;
             _logger                   = logger;
         }
 
@@ -123,6 +133,9 @@ namespace LoomPipe.Server.Controllers
             var pipeline = await _pipelineRepository.GetByIdAsync(id);
             if (pipeline == null) return NotFound();
 
+            // Capture config snapshot BEFORE resolving profiles — we store profile IDs, not credentials
+            var (snapshot, expiresAt) = await BuildSnapshotAsync(pipeline);
+
             await ResolveProfileAsync(pipeline.Source);
             await ResolveProfileAsync(pipeline.Destination);
 
@@ -142,93 +155,133 @@ namespace LoomPipe.Server.Controllers
             var runStartTime = DateTime.UtcNow;
             var log = new PipelineRunLog
             {
-                PipelineId  = pipeline.Id,
-                StartedAt   = runStartTime,
-                Status      = "Running",
-                TriggeredBy = triggeredBy,
+                PipelineId        = pipeline.Id,
+                StartedAt         = runStartTime,
+                Status            = "Running",
+                TriggeredBy       = triggeredBy,
+                ConfigSnapshot    = snapshot,
+                SnapshotExpiresAt = expiresAt,
             };
             await _runLogRepo.AddAsync(log);
 
+            return await ExecutePipelineAsync(pipeline, log, triggeredBy, runStartTime, retryOfRunId: null);
+        }
+
+        /// <summary>
+        /// Re-runs a specific failed run using its stored config snapshot (if still valid)
+        /// or the current pipeline configuration if the snapshot has expired.
+        /// </summary>
+        [HttpPost("{id}/runs/{runId}/retry")]
+        [Authorize(Roles = "Admin,User")]
+        public async Task<IActionResult> Retry(int id, int runId)
+        {
+            var originalLog = await _runLogRepo.GetByIdAsync(runId);
+            if (originalLog == null || originalLog.PipelineId != id)
+                return NotFound(new { message = "Run not found." });
+
+            if (originalLog.Status != "Failed")
+                return BadRequest(new { message = "Only failed runs can be retried." });
+
+            var triggeredBy = User.FindFirstValue(ClaimTypes.Name) ?? "system";
+            var runStartTime = DateTime.UtcNow;
+            bool usingSnapshot = false;
+            Pipeline? pipeline = null;
+
+            // Try to use the stored snapshot; fall back to current config if expired/missing
+            if (!string.IsNullOrEmpty(originalLog.ConfigSnapshot)
+                && originalLog.SnapshotExpiresAt.HasValue
+                && originalLog.SnapshotExpiresAt.Value > DateTime.UtcNow)
+            {
+                try
+                {
+                    pipeline = JsonSerializer.Deserialize<Pipeline>(originalLog.ConfigSnapshot, _snapshotOpts);
+                    usingSnapshot = pipeline != null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not deserialize config snapshot for run {RunId}; falling back to current config.", runId);
+                }
+            }
+
+            if (pipeline == null)
+            {
+                pipeline = await _pipelineRepository.GetByIdAsync(id);
+                if (pipeline == null) return NotFound(new { message = "Pipeline not found." });
+            }
+
+            await ResolveProfileAsync(pipeline.Source);
+            await ResolveProfileAsync(pipeline.Destination);
+
+            ISourceReader sourceReader;
+            IDestinationWriter destinationWriter;
             try
             {
-                var engine = new PipelineEngine(sourceReader, destinationWriter,
-                    HttpContext.RequestServices.GetRequiredService<ILogger<PipelineEngine>>());
-
-                var rows = await engine.RunPipelineAsync(pipeline);
-
-                log.FinishedAt    = DateTime.UtcNow;
-                log.Status        = "Success";
-                log.RowsProcessed = rows;
-                await _runLogRepo.UpdateAsync(log);
-
-                // Advance incremental watermark
-                if (!string.IsNullOrWhiteSpace(pipeline.IncrementalField))
-                {
-                    pipeline.LastIncrementalValue = runStartTime.ToString("o");
-                    await _pipelineRepository.UpdateAsync(pipeline);
-                }
-
-                _ = NotifySuccessAsync(pipeline, rows, triggeredBy, log.FinishedAt.Value);
-                _ = _notifRepo.AddAsync(new Notification
-                {
-                    Type       = "pipeline.success",
-                    Title      = $"{pipeline.Name} completed",
-                    Message    = $"{rows:N0} rows processed in {(log.FinishedAt.Value - log.StartedAt).TotalSeconds:F1}s",
-                    PipelineId = pipeline.Id,
-                    CreatedAt  = DateTime.UtcNow,
-                });
-
-                return Ok(new { rowsProcessed = rows });
+                sourceReader      = _connectorFactory.CreateSourceReader(pipeline.Source.Type);
+                destinationWriter = _connectorFactory.CreateDestinationWriter(pipeline.Destination.Type);
             }
-            catch (Exception ex)
+            catch (System.NotSupportedException ex)
             {
-                var (userMessage, stage) = ExtractError(ex);
+                return BadRequest(ex.Message);
+            }
 
-                _logger.LogError(ex,
-                    "Pipeline {PipelineName} (Id={PipelineId}) failed at stage {Stage} triggered by {TriggeredBy}.",
-                    pipeline.Name, pipeline.Id, stage ?? "unknown", triggeredBy);
+            // Build a fresh snapshot for this retry run
+            var (snapshot, expiresAt) = await BuildSnapshotAsync(pipeline);
 
-                log.FinishedAt   = DateTime.UtcNow;
-                log.Status       = "Failed";
-                log.ErrorMessage = userMessage;
-                await _runLogRepo.UpdateAsync(log);
+            var log = new PipelineRunLog
+            {
+                PipelineId        = pipeline.Id,
+                StartedAt         = runStartTime,
+                Status            = "Running",
+                TriggeredBy       = triggeredBy,
+                RetryOfRunId      = runId,
+                ConfigSnapshot    = snapshot,
+                SnapshotExpiresAt = expiresAt,
+            };
+            await _runLogRepo.AddAsync(log);
 
-                _ = NotifyFailureAsync(pipeline, userMessage, stage ?? "Pipeline", triggeredBy, log.FinishedAt.Value);
-                _ = _notifRepo.AddAsync(new Notification
+            _logger.LogInformation(
+                "Retry of run {OriginalRunId} for pipeline '{Name}' (Id={PipelineId}) triggered by {TriggeredBy}. UsingSnapshot={UsingSnapshot}",
+                runId, pipeline.Name, pipeline.Id, triggeredBy, usingSnapshot);
+
+            var result = await ExecutePipelineAsync(pipeline, log, triggeredBy, runStartTime, retryOfRunId: runId);
+
+            // Attach snapshot source info to the response
+            if (result is OkObjectResult ok && ok.Value is not null)
+            {
+                var existing = ok.Value;
+                return Ok(new
                 {
-                    Type       = "pipeline.failed",
-                    Title      = $"{pipeline.Name} failed",
-                    Message    = userMessage,
-                    PipelineId = pipeline.Id,
-                    CreatedAt  = DateTime.UtcNow,
-                });
-
-                return StatusCode(500, new
-                {
-                    message    = userMessage,
-                    stage      = stage,
-                    pipelineId = pipeline.Id,
+                    rowsProcessed   = ((dynamic)existing).rowsProcessed,
+                    retriedFromSnapshot = usingSnapshot,
                 });
             }
+
+            return result;
         }
 
         [HttpGet("{id}/runs")]
         public async Task<IActionResult> GetRuns(int id, [FromQuery] int limit = 10)
         {
             var logs = await _runLogRepo.GetByPipelineIdAsync(id, limit);
-            var dtos = logs.Select(r => new PipelineRunLogDto
+            var now  = DateTime.UtcNow;
+            var dtos = logs.Select(r => new
             {
-                Id            = r.Id,
-                PipelineId    = r.PipelineId,
-                StartedAt     = r.StartedAt,
-                FinishedAt    = r.FinishedAt,
+                r.Id,
+                r.PipelineId,
+                r.StartedAt,
+                r.FinishedAt,
                 DurationMs    = r.FinishedAt.HasValue
                                     ? (long)(r.FinishedAt.Value - r.StartedAt).TotalMilliseconds
-                                    : null,
-                Status        = r.Status,
-                RowsProcessed = r.RowsProcessed,
-                ErrorMessage  = r.ErrorMessage,
-                TriggeredBy   = r.TriggeredBy,
+                                    : (long?)null,
+                r.Status,
+                r.RowsProcessed,
+                r.ErrorMessage,
+                r.TriggeredBy,
+                r.RetryOfRunId,
+                SnapshotAvailable = !string.IsNullOrEmpty(r.ConfigSnapshot)
+                                    && r.SnapshotExpiresAt.HasValue
+                                    && r.SnapshotExpiresAt.Value > now,
+                r.SnapshotExpiresAt,
             });
             return Ok(dtos);
         }
@@ -302,6 +355,110 @@ namespace LoomPipe.Server.Controllers
 
         // ── Private helpers ───────────────────────────────────────────────────
 
+        /// <summary>
+        /// Shared execution logic used by both Run and Retry.
+        /// Assumes the run log has already been created and persisted.
+        /// </summary>
+        private async Task<IActionResult> ExecutePipelineAsync(
+            Pipeline pipeline,
+            PipelineRunLog log,
+            string triggeredBy,
+            DateTime runStartTime,
+            int? retryOfRunId)
+        {
+            var engineLogger = HttpContext.RequestServices.GetRequiredService<ILogger<PipelineEngine>>();
+
+            ISourceReader sourceReader;
+            IDestinationWriter destinationWriter;
+            try
+            {
+                sourceReader      = _connectorFactory.CreateSourceReader(pipeline.Source.Type);
+                destinationWriter = _connectorFactory.CreateDestinationWriter(pipeline.Destination.Type);
+            }
+            catch (System.NotSupportedException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            try
+            {
+                var engine = new PipelineEngine(sourceReader, destinationWriter, engineLogger);
+                var rows   = await engine.RunPipelineAsync(pipeline);
+
+                log.FinishedAt    = DateTime.UtcNow;
+                log.Status        = "Success";
+                log.RowsProcessed = rows;
+                await _runLogRepo.UpdateAsync(log);
+
+                if (!string.IsNullOrWhiteSpace(pipeline.IncrementalField))
+                {
+                    pipeline.LastIncrementalValue = runStartTime.ToString("o");
+                    await _pipelineRepository.UpdateAsync(pipeline);
+                }
+
+                _ = NotifySuccessAsync(pipeline, rows, triggeredBy, log.FinishedAt.Value);
+                _ = _notifRepo.AddAsync(new Notification
+                {
+                    Type       = retryOfRunId.HasValue ? "pipeline.retry.success" : "pipeline.success",
+                    Title      = retryOfRunId.HasValue
+                                     ? $"{pipeline.Name} retry succeeded"
+                                     : $"{pipeline.Name} completed",
+                    Message    = $"{rows:N0} rows processed in {(log.FinishedAt.Value - log.StartedAt).TotalSeconds:F1}s",
+                    PipelineId = pipeline.Id,
+                    CreatedAt  = DateTime.UtcNow,
+                });
+
+                return Ok(new { rowsProcessed = rows });
+            }
+            catch (Exception ex)
+            {
+                var (userMessage, stage) = ExtractError(ex);
+
+                _logger.LogError(ex,
+                    "Pipeline {PipelineName} (Id={PipelineId}) failed at stage {Stage} triggered by {TriggeredBy}.",
+                    pipeline.Name, pipeline.Id, stage ?? "unknown", triggeredBy);
+
+                log.FinishedAt   = DateTime.UtcNow;
+                log.Status       = "Failed";
+                log.ErrorMessage = userMessage;
+                await _runLogRepo.UpdateAsync(log);
+
+                _ = NotifyFailureAsync(pipeline, userMessage, stage ?? "Pipeline", triggeredBy, log.FinishedAt.Value);
+                _ = _notifRepo.AddAsync(new Notification
+                {
+                    Type       = "pipeline.failed",
+                    Title      = $"{pipeline.Name} failed",
+                    Message    = userMessage,
+                    PipelineId = pipeline.Id,
+                    CreatedAt  = DateTime.UtcNow,
+                });
+
+                return StatusCode(500, new
+                {
+                    message    = userMessage,
+                    stage      = stage,
+                    pipelineId = pipeline.Id,
+                });
+            }
+        }
+
+        private async Task<(string? snapshot, DateTime? expiresAt)> BuildSnapshotAsync(Pipeline pipeline)
+        {
+            try
+            {
+                var settings    = await _systemSettingsRepo.GetAsync();
+                var retainDays  = Math.Max(1, settings.FailedRunRetentionDays);
+                var snapshot    = JsonSerializer.Serialize(pipeline, _snapshotOpts);
+                var expiresAt   = DateTime.UtcNow.AddDays(retainDays);
+                return (snapshot, expiresAt);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not build config snapshot; retry will fall back to current config.");
+                return (null, null);
+            }
+        }
+
         private async Task ResolveProfileAsync(DataSourceConfig config)
         {
             if (config?.Parameters == null) return;
@@ -312,16 +469,11 @@ namespace LoomPipe.Server.Controllers
             }
         }
 
-        /// <summary>
-        /// Extracts a clean, human-readable error message and failing stage from the
-        /// exception chain. Eliminates generic "See inner exception..." noise.
-        /// </summary>
         private static (string message, string? stage) ExtractError(Exception ex)
         {
             if (ex is PipelineExecutionException pex)
                 return (pex.GetDetailedMessage(), pex.Stage);
 
-            // Unexpected exception — walk to root cause for the most useful message
             var root = ex;
             while (root.InnerException != null)
                 root = root.InnerException;

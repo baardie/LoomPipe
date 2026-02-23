@@ -18,6 +18,7 @@ namespace LoomPipe.Storage
         public DbSet<SmtpSettings> SmtpSettings { get; set; }
         public DbSet<ApiKey> ApiKeys { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<SystemSettings> SystemSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -55,6 +56,9 @@ namespace LoomPipe.Storage
 
             modelBuilder.Entity<PipelineRunLog>()
                 .HasIndex(r => r.PipelineId);
+
+            modelBuilder.Entity<PipelineRunLog>()
+                .HasIndex(r => r.SnapshotExpiresAt);
 
             modelBuilder.Entity<ApiKey>(entity =>
             {

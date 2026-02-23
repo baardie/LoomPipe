@@ -5,12 +5,15 @@ using LoomPipe.Core.Exceptions;
 using LoomPipe.Core.Interfaces;
 using LoomPipe.Engine;
 using LoomPipe.Storage.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,10 +21,16 @@ namespace LoomPipe.Workers
 {
     public class ConnectorWorker : BackgroundService
     {
+        private static readonly JsonSerializerOptions _snapshotOpts = new()
+        {
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+        };
+
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<ConnectorWorker> _logger;
         private readonly ConcurrentDictionary<int, IConnector> _running = new();
-        private DateTime _lastScheduleCheck = DateTime.MinValue;
+        private DateTime _lastScheduleCheck  = DateTime.MinValue;
+        private DateTime _lastSnapshotCleanup = DateTime.MinValue;
 
         public ConnectorWorker(IServiceScopeFactory scopeFactory, ILogger<ConnectorWorker> logger)
         {
@@ -56,7 +65,36 @@ namespace LoomPipe.Workers
                     await CheckScheduledPipelinesAsync(scope.ServiceProvider, stoppingToken);
                 }
 
+                // Purge expired config snapshots once per day
+                if ((DateTime.UtcNow - _lastSnapshotCleanup).TotalHours >= 24)
+                {
+                    _lastSnapshotCleanup = DateTime.UtcNow;
+                    await PurgeExpiredSnapshotsAsync(scope.ServiceProvider);
+                }
+
                 await Task.Delay(1000, stoppingToken);
+            }
+        }
+
+        private async Task PurgeExpiredSnapshotsAsync(IServiceProvider services)
+        {
+            try
+            {
+                var db  = services.GetRequiredService<LoomPipe.Storage.LoomPipeDbContext>();
+                var now = DateTime.UtcNow;
+                var count = await db.PipelineRunLogs
+                    .Where(r => r.SnapshotExpiresAt.HasValue && r.SnapshotExpiresAt.Value <= now
+                                && r.ConfigSnapshot != null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(r => r.ConfigSnapshot,    (string?)null)
+                        .SetProperty(r => r.SnapshotExpiresAt, (DateTime?)null));
+
+                if (count > 0)
+                    _logger.LogInformation("Purged {Count} expired run config snapshot(s).", count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error purging expired config snapshots.");
             }
         }
 
@@ -70,6 +108,10 @@ namespace LoomPipe.Workers
                 var profileService   = services.GetRequiredService<IConnectionProfileService>();
                 var engineLogger     = services.GetRequiredService<ILogger<PipelineEngine>>();
                 var notifRepo        = services.GetRequiredService<INotificationRepository>();
+                var systemSettings   = services.GetRequiredService<ISystemSettingsRepository>();
+
+                var settings   = await systemSettings.GetAsync();
+                var retainDays = Math.Max(1, settings.FailedRunRetentionDays);
 
                 var now       = DateTime.UtcNow;
                 var pipelines = await pipelineRepo.GetAllAsync();
@@ -81,6 +123,19 @@ namespace LoomPipe.Workers
                 {
                     if (stoppingToken.IsCancellationRequested) break;
                     _logger.LogInformation("Scheduler triggering pipeline '{Name}' (id={Id}).", pipeline.Name, pipeline.Id);
+
+                    // Capture config snapshot BEFORE resolving profiles
+                    string? snapshot   = null;
+                    DateTime? expiry   = null;
+                    try
+                    {
+                        snapshot = JsonSerializer.Serialize(pipeline, _snapshotOpts);
+                        expiry   = now.AddDays(retainDays);
+                    }
+                    catch (Exception snapshotEx)
+                    {
+                        _logger.LogWarning(snapshotEx, "Could not serialize config snapshot for scheduled pipeline '{Name}'.", pipeline.Name);
+                    }
 
                     await ResolveProfileAsync(pipeline.Source, profileService);
                     await ResolveProfileAsync(pipeline.Destination, profileService);
@@ -98,13 +153,15 @@ namespace LoomPipe.Workers
                         continue;
                     }
 
-                    var runStartTime = DateTime.UtcNow;
+                    var runStartTime = now;
                     var log = new PipelineRunLog
                     {
-                        PipelineId  = pipeline.Id,
-                        StartedAt   = runStartTime,
-                        Status      = "Running",
-                        TriggeredBy = "scheduler",
+                        PipelineId        = pipeline.Id,
+                        StartedAt         = runStartTime,
+                        Status            = "Running",
+                        TriggeredBy       = "scheduler",
+                        ConfigSnapshot    = snapshot,
+                        SnapshotExpiresAt = expiry,
                     };
                     await runLogRepo.AddAsync(log);
 
@@ -121,8 +178,6 @@ namespace LoomPipe.Workers
                         await runLogRepo.UpdateAsync(log);
                         _logger.LogInformation("Scheduled pipeline '{Name}' completed ({Rows} rows).", pipeline.Name, rows);
 
-                        // Advance the incremental watermark to the start of this run so next
-                        // run only fetches records modified after this point.
                         if (!string.IsNullOrWhiteSpace(pipeline.IncrementalField))
                             pipeline.LastIncrementalValue = runStartTime.ToString("o");
 
@@ -133,7 +188,7 @@ namespace LoomPipe.Workers
                         }
                         catch (Exception mailEx)
                         {
-                            _logger.LogWarning(mailEx, "Success notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
+                            _logger.LogWarning(mailEx, "Success email could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
                         }
 
                         try
@@ -175,7 +230,7 @@ namespace LoomPipe.Workers
                         }
                         catch (Exception mailEx)
                         {
-                            _logger.LogWarning(mailEx, "Failure notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
+                            _logger.LogWarning(mailEx, "Failure email could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
                         }
 
                         try

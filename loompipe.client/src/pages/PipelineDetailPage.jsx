@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, ChevronLeft, Play, Pencil, XCircle, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
+import { Loader2, ChevronLeft, Play, Pencil, XCircle, ChevronDown, ChevronRight, AlertCircle, RotateCcw, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import RoleGuard from '../components/auth/RoleGuard';
 
@@ -28,14 +28,11 @@ const StatCard = ({ label, value, highlight }) => (
   </div>
 );
 
-/** Expandable error row shown beneath a failed run row. */
 const ErrorDetailRow = ({ errorMessage }) => {
-  // Split on the → separator the engine produces for chained messages
   const parts = errorMessage?.split(' → ') ?? [];
-
   return (
     <tr>
-      <td colSpan={5} className="px-4 pb-3 pt-0">
+      <td colSpan={6} className="px-4 pb-3 pt-0">
         <div className="bg-red-950/40 border border-red-900/40 rounded-md p-3 text-xs">
           {parts.length > 1 ? (
             <ol className="space-y-1 list-none">
@@ -55,10 +52,11 @@ const ErrorDetailRow = ({ errorMessage }) => {
   );
 };
 
-/** A single run row, with expand/collapse for error detail. */
-const RunRow = ({ r }) => {
+const RunRow = ({ r, onRetry, retrying }) => {
   const [expanded, setExpanded] = useState(false);
-  const hasFailed = r.status === 'Failed' && r.errorMessage;
+  const hasFailed  = r.status === 'Failed' && r.errorMessage;
+  const canRetry   = r.status === 'Failed';
+  const isRetry    = r.retryOfRunId != null;
 
   return (
     <>
@@ -66,7 +64,16 @@ const RunRow = ({ r }) => {
         className={`hover:bg-[var(--bg-subtle)] ${hasFailed ? 'cursor-pointer' : ''}`}
         onClick={hasFailed ? () => setExpanded(e => !e) : undefined}
       >
-        <td className="px-4 py-2 font-mono text-[var(--text-muted)]">{new Date(r.startedAt).toLocaleString()}</td>
+        <td className="px-4 py-2 font-mono text-[var(--text-muted)]">
+          <div className="flex items-center gap-1.5">
+            {new Date(r.startedAt).toLocaleString()}
+            {isRetry && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-indigo-400 border border-indigo-500/30 rounded px-1 py-0.5">
+                <RotateCcw size={9} /> retry
+              </span>
+            )}
+          </div>
+        </td>
         <td className="px-4 py-2"><StatusBadge status={r.status} /></td>
         <td className="px-4 py-2 text-[var(--text-secondary)]">{r.durationMs != null ? `${(r.durationMs / 1000).toFixed(1)}s` : '–'}</td>
         <td className="px-4 py-2 text-[var(--text-secondary)]">{r.rowsProcessed ?? '–'}</td>
@@ -74,12 +81,37 @@ const RunRow = ({ r }) => {
           {hasFailed ? (
             <span className="inline-flex items-center gap-1 text-[var(--red)]">
               {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-              <span className="truncate max-w-[200px]" title={r.errorMessage}>
-                {r.errorMessage.length > 50 ? r.errorMessage.slice(0, 50) + '…' : r.errorMessage}
+              <span className="truncate max-w-[180px]" title={r.errorMessage}>
+                {r.errorMessage.length > 45 ? r.errorMessage.slice(0, 45) + '…' : r.errorMessage}
               </span>
             </span>
           ) : (
             <span className="text-[var(--text-muted)]">–</span>
+          )}
+        </td>
+        <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
+          {canRetry && (
+            <RoleGuard roles={['Admin', 'User']}>
+              <button
+                onClick={() => onRetry(r.id)}
+                disabled={retrying === r.id}
+                title={r.snapshotAvailable
+                  ? `Re-run with original config (snapshot expires ${new Date(r.snapshotExpiresAt).toLocaleDateString()})`
+                  : 'Re-run with current pipeline config (original snapshot expired)'}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border transition-colors disabled:opacity-40
+                  border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-400"
+              >
+                {retrying === r.id
+                  ? <Loader2 size={10} className="animate-spin" />
+                  : <RotateCcw size={10} />}
+                {r.snapshotAvailable ? 'Retry' : (
+                  <span className="flex items-center gap-0.5">
+                    <Clock size={9} className="text-slate-500" />
+                    Retry
+                  </span>
+                )}
+              </button>
+            </RoleGuard>
           )}
         </td>
       </tr>
@@ -95,15 +127,16 @@ const PipelineDetailPage = ({ pipelineId, onBack, onEdit }) => {
   const [stats,     setStats]     = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [running,   setRunning]   = useState(false);
-  const [runError,  setRunError]  = useState(null);   // inline error from the Run Now button
-  const [runBanner, setRunBanner] = useState(null);   // success banner
+  const [retrying,  setRetrying]  = useState(null);   // runId currently being retried
+  const [runError,  setRunError]  = useState(null);
+  const [runBanner, setRunBanner] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [pRes, rRes, sRes] = await Promise.all([
         authFetch(`/api/pipelines/${pipelineId}`),
-        authFetch(`/api/pipelines/${pipelineId}/runs`),
+        authFetch(`/api/pipelines/${pipelineId}/runs?limit=25`),
         authFetch(`/api/pipelines/${pipelineId}/stats`),
       ]);
       if (pRes.ok) setPipeline(await pRes.json());
@@ -134,6 +167,30 @@ const PipelineDetailPage = ({ pipelineId, onBack, onEdit }) => {
       setRunError(`Network error: ${err.message}`);
     } finally {
       setRunning(false);
+    }
+  };
+
+  const handleRetry = async (runId) => {
+    setRetrying(runId);
+    setRunError(null);
+    setRunBanner(null);
+    try {
+      const res = await authFetch(`/api/pipelines/${pipelineId}/runs/${runId}/retry`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const src = data.retriedFromSnapshot ? ' (used original config snapshot)' : ' (used current config — original snapshot expired)';
+        setRunBanner(`Retry succeeded — ${data.rowsProcessed ?? 0} row(s) processed.${src}`);
+        setTimeout(load, 800);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const stageLabel = data.stage ? ` [${STAGE_LABELS[data.stage] ?? data.stage}]` : '';
+        setRunError(`Retry failed${stageLabel}: ${data.message ?? 'Unknown error'}`);
+        setTimeout(load, 800);
+      }
+    } catch (err) {
+      setRunError(`Network error: ${err.message}`);
+    } finally {
+      setRetrying(null);
     }
   };
 
@@ -176,7 +233,6 @@ const PipelineDetailPage = ({ pipelineId, onBack, onEdit }) => {
         </div>
       </div>
 
-      {/* Run result banners */}
       {runBanner && (
         <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-md bg-green-900/20 border border-green-800/40 text-xs text-[var(--green)]">
           {runBanner}
@@ -210,16 +266,16 @@ const PipelineDetailPage = ({ pipelineId, onBack, onEdit }) => {
         <table className="w-full text-xs">
           <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border)]">
             <tr>
-              {['Started', 'Status', 'Duration', 'Rows', 'Error (click to expand)'].map(h => (
+              {['Started', 'Status', 'Duration', 'Rows', 'Error (click to expand)', ''].map(h => (
                 <th key={h} className="px-4 py-2.5 text-left font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
             {runs.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-[var(--text-muted)]">No runs yet.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-[var(--text-muted)]">No runs yet.</td></tr>
             ) : runs.map(r => (
-              <RunRow key={r.id} r={r} />
+              <RunRow key={r.id} r={r} onRetry={handleRetry} retrying={retrying} />
             ))}
           </tbody>
         </table>

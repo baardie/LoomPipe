@@ -5,6 +5,13 @@ import { useAuth } from '../contexts/AuthContext';
 // ── Type config ─────────────────────────────────────────────────────────────
 // Add new notification types here — no other code changes needed.
 const TYPE_CONFIG = {
+  'pipeline.retry.success': {
+    icon: CheckCircle,
+    iconClass: 'text-indigo-400',
+    dotClass: 'bg-indigo-400',
+    badgeClass: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    label: 'Retry OK',
+  },
   'pipeline.success': {
     icon: CheckCircle,
     iconClass: 'text-emerald-400',

@@ -106,6 +106,7 @@ builder.Services.AddScoped<LoomPipe.Storage.Interfaces.ISmtpSettingsRepository, 
 builder.Services.AddScoped<LoomPipe.Storage.Interfaces.IApiKeyRepository, LoomPipe.Storage.Repositories.ApiKeyRepository>();
 builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>();
 builder.Services.AddScoped<LoomPipe.Core.Interfaces.INotificationRepository, LoomPipe.Storage.Repositories.NotificationRepository>();
+builder.Services.AddScoped<LoomPipe.Storage.Interfaces.ISystemSettingsRepository, LoomPipe.Storage.Repositories.SystemSettingsRepository>();
 builder.Services.AddHostedService<ConnectorWorker>();
 builder.Services.AddHttpClient();
 

@@ -6,7 +6,7 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/donate-PayPal-blue?logo=paypal)](https://www.paypal.com/paypalme/baardie)
 
 ## Want help?
-I can integrate custom connectors, add new features and help you out! Send me an email at lukebaard@outlook.com.
+I can integrate custom connectors, add new features and help you out! Send me an email on [Linkdin](https://www.linkedin.com/in/lukebaard/).
 
 ---
 
@@ -33,6 +33,7 @@ I can integrate custom connectors, add new features and help you out! Send me an
 | **Dashboard & Live Monitor** | Real-time metric cards, visual pipeline canvas, live pipe monitor with auto-refresh, and source distribution chart |
 | **Email notifications** | SMTP-based alerts on pipeline success or failure — configurable per-event with a test-send button |
 | **In-app notification centre** | Real-time bell icon with unread badge, dropdown panel, type-tagged alerts for pipeline success and failure — click any notification to jump directly to the pipeline |
+| **Failed run retry** | Re-run any failed pipeline run with one click — replays with the original config snapshot (stored securely for a configurable window, default 7 days) or falls back to current config if the snapshot has expired |
 | **File upload** | Upload CSV (up to 50 MB) or JSON (up to 100 MB) files directly through the UI as pipeline sources |
 | **Multi-provider storage** | Run against SQLite (zero-config), PostgreSQL, or SQL Server — switch with a single config key |
 | **Docker-ready** | Single-container Docker image using SQLite by default — no external database required |

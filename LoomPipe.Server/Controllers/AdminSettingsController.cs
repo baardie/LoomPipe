@@ -1,6 +1,8 @@
+using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using LoomPipe.Core.Interfaces;
 using LoomPipe.Core.Settings;
+using LoomPipe.Storage.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -17,14 +19,17 @@ namespace LoomPipe.Server.Controllers
     public class AdminSettingsController : ControllerBase
     {
         private readonly IEmailNotificationService _emailService;
+        private readonly ISystemSettingsRepository _systemSettingsRepo;
         private readonly ILogger<AdminSettingsController> _logger;
 
         public AdminSettingsController(
             IEmailNotificationService emailService,
+            ISystemSettingsRepository systemSettingsRepo,
             ILogger<AdminSettingsController> logger)
         {
-            _emailService = emailService;
-            _logger       = logger;
+            _emailService       = emailService;
+            _systemSettingsRepo = systemSettingsRepo;
+            _logger             = logger;
         }
 
         // ── Email settings ────────────────────────────────────────────────────
@@ -86,5 +91,36 @@ namespace LoomPipe.Server.Controllers
 
             return BadRequest(new { success = false, message = "Failed to send test email. Check the SMTP settings and server logs for details." });
         }
+
+        // ── System settings ───────────────────────────────────────────────────
+
+        [HttpGet("system")]
+        public async Task<IActionResult> GetSystemSettings()
+        {
+            var settings = await _systemSettingsRepo.GetAsync();
+            return Ok(new { settings.FailedRunRetentionDays });
+        }
+
+        [HttpPut("system")]
+        public async Task<IActionResult> SaveSystemSettings([FromBody] SystemSettingsRequest request)
+        {
+            if (request.FailedRunRetentionDays < 1 || request.FailedRunRetentionDays > 365)
+                return BadRequest(new { message = "Retention days must be between 1 and 365." });
+
+            var settings = await _systemSettingsRepo.GetAsync();
+            settings.FailedRunRetentionDays = request.FailedRunRetentionDays;
+            await _systemSettingsRepo.SaveAsync(settings);
+
+            _logger.LogInformation("System settings updated by {User}: FailedRunRetentionDays={Days}.",
+                User.Identity?.Name ?? "unknown", request.FailedRunRetentionDays);
+
+            return NoContent();
+        }
+    }
+
+    public class SystemSettingsRequest
+    {
+        [Range(1, 365)]
+        public int FailedRunRetentionDays { get; set; } = 7;
     }
 }
