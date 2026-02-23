@@ -64,11 +64,12 @@ namespace LoomPipe.Workers
         {
             try
             {
-                var pipelineRepo   = services.GetRequiredService<IPipelineRepository>();
-                var runLogRepo     = services.GetRequiredService<IPipelineRunLogRepository>();
+                var pipelineRepo     = services.GetRequiredService<IPipelineRepository>();
+                var runLogRepo       = services.GetRequiredService<IPipelineRunLogRepository>();
                 var connectorFactory = services.GetRequiredService<IConnectorFactory>();
-                var profileService = services.GetRequiredService<IConnectionProfileService>();
-                var engineLogger   = services.GetRequiredService<ILogger<PipelineEngine>>();
+                var profileService   = services.GetRequiredService<IConnectionProfileService>();
+                var engineLogger     = services.GetRequiredService<ILogger<PipelineEngine>>();
+                var notifRepo        = services.GetRequiredService<INotificationRepository>();
 
                 var now       = DateTime.UtcNow;
                 var pipelines = await pipelineRepo.GetAllAsync();
@@ -134,6 +135,22 @@ namespace LoomPipe.Workers
                         {
                             _logger.LogWarning(mailEx, "Success notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
                         }
+
+                        try
+                        {
+                            await notifRepo.AddAsync(new Notification
+                            {
+                                Type       = "pipeline.success",
+                                Title      = $"{pipeline.Name} completed",
+                                Message    = $"{rows:N0} rows processed in {(log.FinishedAt!.Value - log.StartedAt).TotalSeconds:F1}s (scheduled)",
+                                PipelineId = pipeline.Id,
+                                CreatedAt  = DateTime.UtcNow,
+                            });
+                        }
+                        catch (Exception notifEx)
+                        {
+                            _logger.LogWarning(notifEx, "In-app notification could not be created for scheduled pipeline '{Name}'.", pipeline.Name);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -159,6 +176,22 @@ namespace LoomPipe.Workers
                         catch (Exception mailEx)
                         {
                             _logger.LogWarning(mailEx, "Failure notification could not be delivered for scheduled pipeline '{Name}'.", pipeline.Name);
+                        }
+
+                        try
+                        {
+                            await notifRepo.AddAsync(new Notification
+                            {
+                                Type       = "pipeline.failed",
+                                Title      = $"{pipeline.Name} failed",
+                                Message    = errorMessage,
+                                PipelineId = pipeline.Id,
+                                CreatedAt  = DateTime.UtcNow,
+                            });
+                        }
+                        catch (Exception notifEx)
+                        {
+                            _logger.LogWarning(notifEx, "In-app notification could not be created for failed scheduled pipeline '{Name}'.", pipeline.Name);
                         }
                     }
 

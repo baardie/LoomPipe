@@ -129,6 +129,7 @@ function App() {
         <Topbar
           currentPage={currentPage}
           onNewPipeline={() => { setEditingPipeline(null); setShowForm(true); }}
+          onNavigateToPipeline={handlePipelineRowClick}
         />
 
         <main className="flex-1 overflow-y-auto">

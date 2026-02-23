@@ -17,6 +17,7 @@ namespace LoomPipe.Storage
         public DbSet<UserConnectionPermission> UserConnectionPermissions { get; set; }
         public DbSet<SmtpSettings> SmtpSettings { get; set; }
         public DbSet<ApiKey> ApiKeys { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -62,6 +63,16 @@ namespace LoomPipe.Storage
                       .WithMany()
                       .HasForeignKey(k => k.AppUserId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasIndex(n => n.CreatedAt);
+                entity.HasIndex(n => n.IsRead);
+                entity.HasOne(n => n.Pipeline)
+                      .WithMany()
+                      .HasForeignKey(n => n.PipelineId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<Pipeline>(entity =>

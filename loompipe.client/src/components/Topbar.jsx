@@ -1,7 +1,8 @@
 import React from 'react';
-import { Search, Bell, Plus } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 
-const Topbar = ({ onNewPipeline }) => {
+const Topbar = ({ onNewPipeline, onNavigateToPipeline }) => {
   return (
     <header className="h-16 flex-shrink-0 flex items-center justify-between px-8 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-10">
       {/* Search bar */}
@@ -22,10 +23,8 @@ const Topbar = ({ onNewPipeline }) => {
           <span className="text-xs font-bold">Loom Engine: Stable</span>
         </div>
 
-        {/* Bell */}
-        <button className="p-2 text-slate-400 hover:text-white transition-colors">
-          <Bell size={19} />
-        </button>
+        {/* Notification bell */}
+        <NotificationCenter onNavigateToPipeline={onNavigateToPipeline} />
 
         {/* New Pipe button */}
         {onNewPipeline && (

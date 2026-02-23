@@ -31,6 +31,7 @@ namespace LoomPipe.Server.Controllers
         private readonly IConnectionProfileService _connectionProfileService;
         private readonly IPipelineRunLogRepository _runLogRepo;
         private readonly IEmailNotificationService _emailNotificationService;
+        private readonly INotificationRepository _notifRepo;
         private readonly ILogger<PipelinesController> _logger;
 
         public PipelinesController(
@@ -39,6 +40,7 @@ namespace LoomPipe.Server.Controllers
             IConnectionProfileService connectionProfileService,
             IPipelineRunLogRepository runLogRepo,
             IEmailNotificationService emailNotificationService,
+            INotificationRepository notifRepo,
             ILogger<PipelinesController> logger)
         {
             _pipelineRepository       = pipelineRepository;
@@ -46,6 +48,7 @@ namespace LoomPipe.Server.Controllers
             _connectionProfileService = connectionProfileService;
             _runLogRepo               = runLogRepo;
             _emailNotificationService = emailNotificationService;
+            _notifRepo                = notifRepo;
             _logger                   = logger;
         }
 
@@ -166,6 +169,14 @@ namespace LoomPipe.Server.Controllers
                 }
 
                 _ = NotifySuccessAsync(pipeline, rows, triggeredBy, log.FinishedAt.Value);
+                _ = _notifRepo.AddAsync(new Notification
+                {
+                    Type       = "pipeline.success",
+                    Title      = $"{pipeline.Name} completed",
+                    Message    = $"{rows:N0} rows processed in {(log.FinishedAt.Value - log.StartedAt).TotalSeconds:F1}s",
+                    PipelineId = pipeline.Id,
+                    CreatedAt  = DateTime.UtcNow,
+                });
 
                 return Ok(new { rowsProcessed = rows });
             }
@@ -183,6 +194,14 @@ namespace LoomPipe.Server.Controllers
                 await _runLogRepo.UpdateAsync(log);
 
                 _ = NotifyFailureAsync(pipeline, userMessage, stage ?? "Pipeline", triggeredBy, log.FinishedAt.Value);
+                _ = _notifRepo.AddAsync(new Notification
+                {
+                    Type       = "pipeline.failed",
+                    Title      = $"{pipeline.Name} failed",
+                    Message    = userMessage,
+                    PipelineId = pipeline.Id,
+                    CreatedAt  = DateTime.UtcNow,
+                });
 
                 return StatusCode(500, new
                 {

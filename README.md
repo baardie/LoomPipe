@@ -32,6 +32,7 @@ I can integrate custom connectors, add new features and help you out! Send me an
 | **Live connection testing** | Test any connection profile on-demand from the UI |
 | **Dashboard & Live Monitor** | Real-time metric cards, visual pipeline canvas, live pipe monitor with auto-refresh, and source distribution chart |
 | **Email notifications** | SMTP-based alerts on pipeline success or failure — configurable per-event with a test-send button |
+| **In-app notification centre** | Real-time bell icon with unread badge, dropdown panel, type-tagged alerts for pipeline success and failure — click any notification to jump directly to the pipeline |
 | **File upload** | Upload CSV (up to 50 MB) or JSON (up to 100 MB) files directly through the UI as pipeline sources |
 | **Multi-provider storage** | Run against SQLite (zero-config), PostgreSQL, or SQL Server — switch with a single config key |
 | **Docker-ready** | Single-container Docker image using SQLite by default — no external database required |
@@ -347,9 +348,9 @@ All 23 tests use an in-memory database and a test auth handler — no real datab
 ```
 LoomPipe/
 ├── LoomPipe.Core/
-│   ├── Entities/          # Pipeline, AppUser, ApiKey, PipelineRunLog, UserConnectionPermission, …
+│   ├── Entities/          # Pipeline, AppUser, ApiKey, PipelineRunLog, Notification, …
 │   ├── DTOs/              # Request/response DTOs
-│   ├── Interfaces/        # ISourceReader, IDestinationWriter, IEmailNotificationService, repositories, …
+│   ├── Interfaces/        # ISourceReader, IDestinationWriter, IEmailNotificationService, INotificationRepository, …
 │   └── Settings/          # EmailSettings
 ├── LoomPipe.Engine/       # PipelineEngine, TransformationParser, AutomapHelper
 ├── LoomPipe.Connectors/   # CSV, JSON, REST, SQL (with watermark support), MongoDB, Neo4j,
@@ -358,13 +359,13 @@ LoomPipe/
 │   ├── LoomPipeDbContext.cs
 │   ├── Migrations/        # SQLite-compatible EF Core migrations
 │   └── Repositories/      # Pipeline, DataSourceConfig, ConnectionProfile, AppUser,
-│                          # PipelineRunLog, UserConnectionPermission, SmtpSettings, ApiKey
+│                          # PipelineRunLog, UserConnectionPermission, SmtpSettings, ApiKey, Notification
 ├── LoomPipe.Services/     # ConnectionProfileService, EmailNotificationService
 ├── LoomPipe.Workers/      # ConnectorWorker (background cron scheduler + watermark advance)
 ├── LoomPipe.Server/
 │   ├── Auth/              # ApiKeyAuthHandler (X-Api-Key scheme)
 │   ├── Controllers/       # Pipelines, Connections, Auth, Users, Analytics,
-│   │                      # AdminSettings, Csv, Json, ApiKeys
+│   │                      # AdminSettings, Csv, Json, ApiKeys, Notifications
 │   ├── appsettings.json             # Base config (SqlServer)
 │   ├── appsettings.Development.json # Dev overrides (SQLite, zero-config)
 │   ├── appsettings.Production.json  # Production defaults (Sqlite)
@@ -373,7 +374,7 @@ LoomPipe/
 │   └── src/
 │       ├── pages/         # DashboardPage, PipelinesPage, PipelineDetailPage, ConnectionsPage,
 │       │                  # ProfileDetailPage, UsersPage, AnalyticsPage, SettingsPage, LoginPage
-│       ├── components/    # Sidebar, Topbar, ConfirmDialog, ErrorBoundary,
+│       ├── components/    # Sidebar, Topbar, NotificationCenter, ConfirmDialog, ErrorBoundary,
 │       │                  # PipelineForm, PipelineList, ConnectionProfileDialog,
 │       │                  # loom/ (LoomCanvas, LoomEditor, LoomPanel, LoomSettings),
 │       │                  # pipeline/ (DraggableFieldMapping, DryRunResultModal, …)
