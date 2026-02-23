@@ -40,15 +40,21 @@ if (builder.Environment.IsEnvironment("Testing"))
 }
 else
 {
-    builder.Services.AddDbContext<LoomPipe.Storage.LoomPipeDbContext>(options => _ = dbProvider switch {
-        "Sqlite"     => options.UseSqlite(connStr),
-        "PostgreSQL" => options.UseNpgsql(connStr),
-        _            => options.UseSqlServer(connStr),
+    builder.Services.AddDbContext<LoomPipe.Storage.LoomPipeDbContext>(options => {
+        _ = dbProvider switch {
+            "Sqlite"     => options.UseSqlite(connStr),
+            "PostgreSQL" => options.UseNpgsql(connStr),
+            _            => options.UseSqlServer(connStr),
+        };
+        options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
-    builder.Services.AddDbContext<LoomPipeDbContext>(options => _ = dbProvider switch {
-        "Sqlite"     => options.UseSqlite(connStr),
-        "PostgreSQL" => options.UseNpgsql(connStr),
-        _            => options.UseSqlServer(connStr),
+    builder.Services.AddDbContext<LoomPipeDbContext>(options => {
+        _ = dbProvider switch {
+            "Sqlite"     => options.UseSqlite(connStr),
+            "PostgreSQL" => options.UseNpgsql(connStr),
+            _            => options.UseSqlServer(connStr),
+        };
+        options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
     });
 }
 
@@ -125,18 +131,19 @@ if (!app.Environment.IsEnvironment("Testing"))
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
     // Apply EF Core migrations automatically on startup.
-    // For SQLite the LoomPipeDbContext (pipeline-data schema) has no EF migrations,
-    // so we use EnsureCreated(); Storage always has migrations for all providers.
+    // For the Data context (Connectors/Transformers schema), SQLite requires EnsureCreated()
+    // because its migration uses SQL Server types. EnsureCreated() must run first so the
+    // DB file doesn't already exist when called. Storage context uses Migrate() always.
     try
     {
-        scope.ServiceProvider.GetRequiredService<LoomPipe.Storage.LoomPipeDbContext>()
-             .Database.Migrate();
-
         var dataCtx = scope.ServiceProvider.GetRequiredService<LoomPipeDbContext>();
         if (dbProvider == "Sqlite")
             dataCtx.Database.EnsureCreated();
         else
             dataCtx.Database.Migrate();
+
+        scope.ServiceProvider.GetRequiredService<LoomPipe.Storage.LoomPipeDbContext>()
+             .Database.Migrate();
     }
     catch (Exception ex)
     {

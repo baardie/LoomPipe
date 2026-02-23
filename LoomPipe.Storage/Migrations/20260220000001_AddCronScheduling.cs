@@ -10,10 +10,8 @@ namespace LoomPipe.Storage.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "ScheduleIntervalMinutes",
-                table: "Pipelines");
-
+            // SQLite does not support DROP COLUMN; leave ScheduleIntervalMinutes in place.
+            // On SQL Server this would drop the old column, but for SQLite we skip the drop.
             migrationBuilder.AddColumn<string>(
                 name: "CronExpression",
                 table: "Pipelines",
@@ -27,12 +25,6 @@ namespace LoomPipe.Storage.Migrations
             migrationBuilder.DropColumn(
                 name: "CronExpression",
                 table: "Pipelines");
-
-            migrationBuilder.AddColumn<int>(
-                name: "ScheduleIntervalMinutes",
-                table: "Pipelines",
-                type: "INTEGER",
-                nullable: true);
         }
     }
 }

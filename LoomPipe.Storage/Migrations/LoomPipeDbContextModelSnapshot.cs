@@ -219,8 +219,17 @@ namespace LoomPipe.Storage.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CronExpression")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("DestinationId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("IncrementalField")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastIncrementalValue")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Metadata")
                         .IsRequired()
@@ -228,15 +237,6 @@ namespace LoomPipe.Storage.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CronExpression")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("IncrementalField")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LastIncrementalValue")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("NextRunAt")
@@ -300,24 +300,18 @@ namespace LoomPipe.Storage.Migrations
             modelBuilder.Entity("LoomPipe.Core.Entities.SmtpSettings", b =>
                 {
                     b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("Enabled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("SmtpHost")
+                    b.Property<string>("AdminEmail")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("SmtpPort")
-                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("EnableSsl")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("EncryptedPassword")
                         .IsRequired()
@@ -331,15 +325,22 @@ namespace LoomPipe.Storage.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("AdminEmail")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("NotifyOnFailure")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("NotifyOnSuccess")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("SmtpHost")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SmtpPort")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

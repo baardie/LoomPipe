@@ -92,7 +92,7 @@ loompipe.client         ← React + Vite frontend (Tailwind CSS)
 - SMTP email notifications (`System.Net.Mail`)
 
 **Frontend**
-- React 18 + Vite
+- React 19 + Vite
 - Tailwind CSS
 - Lucide React icons
 
@@ -125,9 +125,9 @@ cd LoomPipe
 
 #### 2. Choose a database
 
-**SQLite (zero-config, recommended for local dev)**
+**SQLite (zero-config, default for local dev)**
 
-Set the provider in `LoomPipe.Server/appsettings.json`:
+`appsettings.Development.json` is pre-configured for SQLite — no changes needed. To override, edit that file:
 
 ```json
 "Database": { "Provider": "Sqlite" },
@@ -136,14 +136,9 @@ Set the provider in `LoomPipe.Server/appsettings.json`:
 }
 ```
 
-Or pass it as environment variables:
-
-```bash
-Database__Provider=Sqlite
-ConnectionStrings__DefaultConnection="Data Source=loompipe.db"
-```
-
 **SQL Server / LocalDB**
+
+Set in `LoomPipe.Server/appsettings.json` (or as environment variables):
 
 ```json
 "Database": { "Provider": "SqlServer" },
@@ -163,19 +158,24 @@ ConnectionStrings__DefaultConnection="Data Source=loompipe.db"
 
 > **Note:** PostgreSQL requires provider-specific migrations to be generated first. See [PostgreSQL migrations](#postgresql-migrations).
 
-#### 3. Run the server
+#### 3. Run the backend
 
 ```bash
 dotnet run --project LoomPipe.Server
 ```
 
-Migrations are applied automatically on startup. The API starts at `https://localhost:5001` and serves the React frontend in development mode — no separate `npm run dev` needed.
+Migrations are applied automatically on startup. The API starts at `http://localhost:5259`.
 
-#### 4. Install frontend dependencies (first run only)
+#### 4. Run the frontend
+
+In a separate terminal:
 
 ```bash
-cd loompipe.client && npm install
+cd loompipe.client && npm install  # first run only
+npm run dev
 ```
+
+The UI is served at `http://localhost:5173` and proxies API calls to the backend.
 
 ### Default credentials
 
@@ -365,7 +365,8 @@ LoomPipe/
 │   ├── Auth/              # ApiKeyAuthHandler (X-Api-Key scheme)
 │   ├── Controllers/       # Pipelines, Connections, Auth, Users, Analytics,
 │   │                      # AdminSettings, Csv, Json, ApiKeys
-│   ├── appsettings.json             # Dev defaults (SqlServer)
+│   ├── appsettings.json             # Base config (SqlServer)
+│   ├── appsettings.Development.json # Dev overrides (SQLite, zero-config)
 │   ├── appsettings.Production.json  # Production defaults (Sqlite)
 │   └── Program.cs         # Provider-switching DbContext, dual-scheme auth
 ├── loompipe.client/       # React + Tailwind frontend
