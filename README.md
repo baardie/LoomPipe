@@ -99,6 +99,25 @@ loompipe.client         ← React + Vite frontend (Tailwind CSS)
 
 ---
 
+** Screenshots **
+
+<img width="2559" height="1261" alt="image" src="https://github.com/user-attachments/assets/c2a428ba-04c3-4ac2-ae29-f59f44a3e103" />
+
+<img width="2292" height="521" alt="image" src="https://github.com/user-attachments/assets/d4aa41fc-5eb2-47c9-a941-44cc73653181" />
+
+<img width="491" height="455" alt="image" src="https://github.com/user-attachments/assets/d9ca254b-be7e-4f4a-b98f-01f8d432275a" />
+
+<img width="2553" height="1261" alt="image" src="https://github.com/user-attachments/assets/740d3b65-75ca-40f1-b00d-3529b8b86e7e" />
+
+<img width="735" height="1008" alt="image" src="https://github.com/user-attachments/assets/ffe637d3-9ee9-45a9-9f3a-161c063299fb" />
+
+<img width="424" height="357" alt="image" src="https://github.com/user-attachments/assets/8b61a42e-c71e-44f0-b5b2-cbbaab0c6423" />
+
+<img width="2556" height="480" alt="image" src="https://github.com/user-attachments/assets/6d32bac8-4b62-4af2-94d1-a817e95b5081" />
+
+<img width="2553" height="1251" alt="image" src="https://github.com/user-attachments/assets/351e5dc5-7c38-458a-8ec6-9912be73da48" />
+
+
 ## Getting Started
 
 ### Quickest: Docker
