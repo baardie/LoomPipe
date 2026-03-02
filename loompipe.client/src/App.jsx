@@ -15,7 +15,8 @@ import { useAuth } from './contexts/AuthContext';
 const DashboardPage   = React.lazy(() => import('./pages/DashboardPage'));
 const PipelinesPage   = React.lazy(() => import('./pages/PipelinesPage'));
 const SettingsPage    = React.lazy(() => import('./pages/SettingsPage'));
-const LoomEditor      = React.lazy(() => import('./components/loom/LoomEditor'));
+const LoomEditor         = React.lazy(() => import('./components/loom/LoomEditor'));
+const DocumentationPage  = React.lazy(() => import('./pages/DocumentationPage'));
 
 // Fallback for lazy-loaded pages not yet created
 const PageFallback = ({ name }) => (
@@ -160,6 +161,10 @@ function App() {
           )}
 
           {currentPage === 'analytics' && <AnalyticsPage />}
+
+          {currentPage === 'documentation' && (
+            <SafeLazy component={DocumentationPage} fallbackName="Documentation" />
+          )}
 
           {currentPage === 'users' && <UsersPage />}
 

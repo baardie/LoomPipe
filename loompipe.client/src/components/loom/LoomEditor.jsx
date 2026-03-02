@@ -6,8 +6,7 @@ import LoomPanel from './LoomPanel';
 import LoomSettings from './LoomSettings';
 import DryRunResultModal from '../pipeline/DryRunResultModal';
 import RoleGuard from '../auth/RoleGuard';
-
-const DB_PROVIDERS = ['sqlserver', 'postgresql', 'mysql', 'oracle', 'mongodb', 'neo4j', 'snowflake', 'bigquery', 'pinecone', 'milvus'];
+import { DB_PROVIDERS } from '../../data/connectorRegistry';
 
 // ── Auth state helpers ────────────────────────────────────────────────────────
 

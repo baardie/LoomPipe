@@ -136,6 +136,116 @@ namespace LoomPipe.Services
                 "bigquery"   => JsonSerializer.Serialize(new { projectId = Get("projectId"), dataset = Get("dataset"), serviceAccountJson = saJson }),
                 "pinecone"   => JsonSerializer.Serialize(new { apiKey, indexName = Get("indexName"), environment = Get("environment") }),
                 "milvus"     => JsonSerializer.Serialize(new { host, port, collection = Get("collection"), user, password = pw }),
+                "stripe"       => pw,
+                "hubspot"      => pw,
+                "shopify"      => JsonSerializer.Serialize(new { shopDomain = host, accessToken = pw }),
+                "googlesheets" => JsonSerializer.Serialize(new { spreadsheetId = host ?? "", apiKey = user, accessToken = pw }),
+                "s3"           => JsonSerializer.Serialize(new { bucket = Get("bucket", host ?? ""), accessKeyId = user, secretAccessKey = pw, region = Get("region", "us-east-1"), endpointUrl = Get("endpointUrl") }),
+
+                // ── Simple token (return password as-is) ─────────────────────
+                "pipedrive"    => pw,
+                "chargebee"    => pw,
+                "toggl"        => pw,
+                "pagerduty"    => pw,
+                "greenhouse"   => pw,
+                "lever"        => pw,
+                "close"        => pw,
+                "copper"       => pw,
+                "freshsales"   => pw,
+                "recurly"      => pw,
+                "brevo"        => pw,
+
+                // ── Simple access token (return password) ────────────────────
+                "slack"          => pw,
+                "intercom"       => pw,
+                "asana"          => pw,
+                "monday"         => pw,
+                "linear"         => pw,
+                "notion"         => pw,
+                "sendgrid"       => pw,
+                "segment"        => pw,
+                "klaviyo"        => pw,
+                "webflow"        => pw,
+                "typeform"       => pw,
+                "surveymonkey"   => pw,
+                "salesloft"      => pw,
+                "sentry"         => pw,
+                "reddit"         => pw,
+                "outreach"       => pw,
+                "pardot"         => pw,
+                "snapchatads"    => pw,
+                "apollo"         => pw,
+                "gusto"          => pw,
+
+                // ── JSON with domain/subdomain + token ───────────────────────
+                "zendesk"        => JsonSerializer.Serialize(new { subdomain = host, accessToken = pw, email = user }),
+                "jira"           => JsonSerializer.Serialize(new { domain = host, email = user, accessToken = pw }),
+                "confluence"     => JsonSerializer.Serialize(new { domain = host, email = user, accessToken = pw }),
+                "okta"           => JsonSerializer.Serialize(new { domain = host, accessToken = pw }),
+                "freshdesk"      => JsonSerializer.Serialize(new { domain = host, accessToken = pw }),
+                "servicenow"     => JsonSerializer.Serialize(new { instance = host, username = user, password = pw }),
+                "bamboohr"       => JsonSerializer.Serialize(new { companyDomain = host, accessToken = pw }),
+                "dynamics365"    => JsonSerializer.Serialize(new { orgUrl = host, accessToken = pw }),
+                "zohocrm"        => pw,
+                "netsuite"       => JsonSerializer.Serialize(new { accountId = host, accessToken = pw }),
+                "salesforcemarketingcloud" => JsonSerializer.Serialize(new { subdomain = host, clientId = user, clientSecret = pw }),
+                "sfcc"           => JsonSerializer.Serialize(new { host, accessToken = pw }),
+
+                // ── JSON with credentials ────────────────────────────────────
+                "salesforce"     => JsonSerializer.Serialize(new { instanceUrl = host, accessToken = pw }),
+                "github"         => pw,
+                "gitlab"         => pw,
+                "bitbucket"      => pw,
+                "airtable"       => pw,
+                "woocommerce"    => JsonSerializer.Serialize(new { storeUrl = host, consumerKey = user, consumerSecret = pw }),
+                "quickbooks"     => pw,
+                "xero"           => pw,
+
+                // ── Advertising / analytics ──────────────────────────────────
+                "googleads"            => JsonSerializer.Serialize(new { accessToken = pw, developerToken = user }),
+                "facebookads"          => pw,
+                "linkedinads"          => pw,
+                "googleanalytics"      => pw,
+                "googlesearchconsole"  => pw,
+                "tiktokads"            => pw,
+                "instagram"            => pw,
+                "youtube"              => pw,
+                "twitter"              => pw,
+                "bingads"              => JsonSerializer.Serialize(new { accessToken = pw, developerToken = user }),
+                "microsoftads"         => JsonSerializer.Serialize(new { accessToken = pw, developerToken = user }),
+                "pinterestads"         => pw,
+
+                // ── Infrastructure tools ─────────────────────────────────────
+                "datadog"        => JsonSerializer.Serialize(new { apiKey = pw, appKey = user, site = Get("site", "datadoghq.com") }),
+                "mixpanel"       => JsonSerializer.Serialize(new { username = user, accessToken = pw }),
+                "amplitude"      => JsonSerializer.Serialize(new { apiKey = user, secretKey = pw }),
+                "marketo"        => JsonSerializer.Serialize(new { munchkinId = host, clientId = user, clientSecret = pw }),
+                "twilio"         => JsonSerializer.Serialize(new { accountSid = user, authToken = pw }),
+                "mailchimp"      => pw,
+                "paypal"         => JsonSerializer.Serialize(new { clientId = user, clientSecret = pw }),
+                "square"         => pw,
+                "bigcommerce"    => JsonSerializer.Serialize(new { storeHash = host, accessToken = pw }),
+
+                // ── Cloud / storage ──────────────────────────────────────────
+                "gcs"            => JsonSerializer.Serialize(new { bucket = Get("bucket", host ?? ""), projectId = Get("projectId"), serviceAccountJson = saJson }),
+                "azureblob"      => JsonSerializer.Serialize(new { connectionString = host, container = Get("container", db ?? "") }),
+                "sftp"           => JsonSerializer.Serialize(new { host, port = port ?? 22, username = user, password = pw }),
+
+                // ── Enterprise ───────────────────────────────────────────────
+                "sap"            => JsonSerializer.Serialize(new { host, username = user, password = pw, sapClient = Get("sapClient", "100") }),
+                "workday"        => JsonSerializer.Serialize(new { host, tenant = Get("tenant", db ?? ""), accessToken = pw }),
+                "shopifyplus"    => JsonSerializer.Serialize(new { shopDomain = host, accessToken = pw }),
+
+                // ── Databases ────────────────────────────────────────────────
+                "elasticsearch"  => JsonSerializer.Serialize(new { host, port = port ?? 9200, username = user, password = pw }),
+                "dynamodb"       => JsonSerializer.Serialize(new { accessKeyId = user, secretAccessKey = pw, region = Get("region", "us-east-1") }),
+                "redis"          => JsonSerializer.Serialize(new { host, accessToken = pw, port = port ?? 6379 }),
+                "cassandra"      => JsonSerializer.Serialize(new { host, port = port ?? 9042, keyspace = db, username = user, password = pw }),
+                "clickhouse"     => JsonSerializer.Serialize(new { host, port = port ?? 8123, database = db, username = user, password = pw }),
+                "databricks"     => JsonSerializer.Serialize(new { accessToken = pw, host, warehouseId = Get("warehouseId") }),
+                "redshift"       => $"Host={host};Port={port ?? 5439};Database={db};Username={user};Password={pw}",
+                "firebase"       => JsonSerializer.Serialize(new { projectId = Get("projectId", host ?? ""), accessToken = pw, collection = db }),
+
                 _            => throw new NotSupportedException($"Provider '{profile.Provider}' is not supported.")
             };
         }

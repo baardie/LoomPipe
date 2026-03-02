@@ -13,9 +13,21 @@ const EMPTY = {
 };
 
 /** Parse saved additionalConfig JSON and restore auth fields into form values. */
-const applyAdditionalConfig = (values, additionalConfigJson) => {
+const applyAdditionalConfig = (values, additionalConfigJson, provider) => {
   try {
     const ac = JSON.parse(additionalConfigJson || '{}');
+
+    // S3: restore bucket/region/endpointUrl from additionalConfig back into form fields
+    if (provider === 's3') {
+      return {
+        ...values,
+        host: ac.bucket || values.host || '',
+        databaseName: ac.region || values.databaseName || '',
+        port: ac.endpointUrl || values.port || '',
+      };
+    }
+
+    // HTTP providers: restore auth type + custom headers
     const headers = ac.headers && typeof ac.headers === 'object'
       ? Object.entries(ac.headers).map(([key, value]) => ({ id: `${key}-${Math.random()}`, key, value: String(value) }))
       : [];
@@ -27,21 +39,55 @@ const applyAdditionalConfig = (values, additionalConfigJson) => {
 
 /** Build the additionalConfig JSON string and strip UI-only fields from the payload. */
 const buildPayload = (values) => {
-  const isHttp = HTTP_PROVIDERS.includes(values.provider);
+  const provider = values.provider;
+  const isHttp = HTTP_PROVIDERS.includes(provider);
   const { authType, customHeaders, ...rest } = values;
 
-  const headersObj = isHttp && customHeaders?.length
-    ? Object.fromEntries(customHeaders.filter(h => h.key.trim()).map(h => [h.key.trim(), h.value]))
-    : {};
+  // HTTP providers: pack auth type + custom headers
+  if (isHttp) {
+    const headersObj = customHeaders?.length
+      ? Object.fromEntries(customHeaders.filter(h => h.key.trim()).map(h => [h.key.trim(), h.value]))
+      : {};
+    const additionalConfig = JSON.stringify({
+      authType: authType || 'none',
+      ...(Object.keys(headersObj).length > 0 ? { headers: headersObj } : {}),
+    });
+    return { ...rest, additionalConfig };
+  }
 
-  const additionalConfig = isHttp
-    ? JSON.stringify({
-        authType: authType || 'none',
-        ...(Object.keys(headersObj).length > 0 ? { headers: headersObj } : {}),
-      })
-    : '{}';
+  // Stripe: API key goes in the password field (encrypted as secret)
+  if (provider === 'stripe') {
+    return { ...rest, additionalConfig: '{}' };
+  }
 
-  return { ...rest, additionalConfig };
+  // Shopify: host = shop domain, password = access token — both already mapped
+  if (provider === 'shopify') {
+    return { ...rest, additionalConfig: '{}' };
+  }
+
+  // Google Sheets: host = spreadsheet ID, username = apiKey, password = access token
+  if (provider === 'googlesheets') {
+    return { ...rest, additionalConfig: '{}' };
+  }
+
+  // S3: host = bucket, username = accessKeyId, password = secretAccessKey,
+  //     databaseName = region, port = endpointUrl
+  // Pack the non-standard overloads into additionalConfig for the backend builder.
+  if (provider === 's3') {
+    const additionalConfig = JSON.stringify({
+      bucket: rest.host || '',
+      region: rest.databaseName || '',
+      endpointUrl: rest.port || '',
+    });
+    return { ...rest, additionalConfig };
+  }
+
+  // HubSpot: password = access token — already mapped
+  if (provider === 'hubspot') {
+    return { ...rest, additionalConfig: '{}' };
+  }
+
+  return { ...rest, additionalConfig: '{}' };
 };
 
 const ConnectionProfileDialog = ({ open, onClose, onSaved, profileId }) => {
@@ -64,7 +110,7 @@ const ConnectionProfileDialog = ({ open, onClose, onSaved, profileId }) => {
           password: '', notes: data.notes || '',
           authType: 'none', customHeaders: [],
         };
-        setValues(applyAdditionalConfig(base, data.additionalConfig));
+        setValues(applyAdditionalConfig(base, data.additionalConfig, data.provider));
       });
     }
   }, [open, profileId, authFetch]);

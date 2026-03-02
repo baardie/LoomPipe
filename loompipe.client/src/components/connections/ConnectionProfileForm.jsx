@@ -1,21 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Plus, X } from 'lucide-react';
-
-const PROVIDERS = [
-  { value: 'csv',        label: 'CSV File' },
-  { value: 'rest',       label: 'REST API' },
-  { value: 'webhook',    label: 'Webhook (destination)' },
-  { value: 'sqlserver',  label: 'Microsoft SQL Server' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql',      label: 'MySQL / MariaDB' },
-  { value: 'oracle',     label: 'Oracle Database' },
-  { value: 'mongodb',    label: 'MongoDB' },
-  { value: 'neo4j',      label: 'Neo4j' },
-  { value: 'snowflake',  label: 'Snowflake' },
-  { value: 'bigquery',   label: 'Google BigQuery' },
-  { value: 'pinecone',   label: 'Pinecone (Vector DB)' },
-  { value: 'milvus',     label: 'Milvus (Vector DB)' },
-];
+import ConnectorPickerButton from './ConnectorPickerButton';
 
 const AUTH_TYPES = [
   { value: 'none',   label: 'No Auth' },
@@ -161,15 +146,23 @@ const ConnectionProfileForm = ({ values, onChange }) => {
   const isCsv       = p === 'csv';
   const isRest      = p === 'rest';
   const isWebhook   = p === 'webhook';
+  const isStripe    = p === 'stripe';
+  const isShopify   = p === 'shopify';
+  const isGSheets   = p === 'googlesheets';
+  const isS3        = p === 's3';
+  const isHubSpot   = p === 'hubspot';
   const needsHostPort = isSql || isMongo || isNeo4j || isVector;
 
   return (
     <div className="flex flex-col gap-4">
       <Field label="Provider *">
-        <select value={values.provider || ''} onChange={handle('provider')} className={inputCls}>
-          <option value="">Select provider…</option>
-          {PROVIDERS.map(pr => <option key={pr.value} value={pr.value}>{pr.label}</option>)}
-        </select>
+        <ConnectorPickerButton
+          value={values.provider || ''}
+          onChange={(provider) => onChange({ ...values, provider })}
+          mode="all"
+          placeholder="Select provider..."
+          title="Select Provider"
+        />
       </Field>
 
       <Field label="Profile Name *">
@@ -261,6 +254,77 @@ const ConnectionProfileForm = ({ values, onChange }) => {
         <Field label="Environment / Region" hint="e.g. us-east-1-aws or gcp-starter">
           <input value={values.databaseName || ''} onChange={handle('databaseName')} placeholder="us-east-1-aws" className={inputCls} />
         </Field>
+      )}
+
+      {/* ── Stripe ─────────────────────────────────────────────── */}
+      {isStripe && (
+        <>
+          <SectionDivider title="Stripe Credentials" />
+          <Field label="API Key *" hint="Secret key starting with sk_live_ or sk_test_. Stored encrypted.">
+            <PasswordInput value={values.password || ''} onChange={handle('password')} placeholder="sk_live_..." />
+          </Field>
+        </>
+      )}
+
+      {/* ── Shopify ────────────────────────────────────────────── */}
+      {isShopify && (
+        <>
+          <SectionDivider title="Shopify Connection" />
+          <Field label="Shop Domain *" hint="e.g. mystore.myshopify.com">
+            <input value={values.host || ''} onChange={handle('host')} placeholder="mystore.myshopify.com" className={inputCls} />
+          </Field>
+          <Field label="Access Token *" hint="Admin API access token (shpat_...). Stored encrypted.">
+            <PasswordInput value={values.password || ''} onChange={handle('password')} placeholder="shpat_..." />
+          </Field>
+        </>
+      )}
+
+      {/* ── Google Sheets ──────────────────────────────────────── */}
+      {isGSheets && (
+        <>
+          <SectionDivider title="Google Sheets" />
+          <Field label="Default Spreadsheet ID" hint="Optional — can also be set per-pipeline. Found in the spreadsheet URL.">
+            <input value={values.host || ''} onChange={handle('host')} placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" className={inputCls} />
+          </Field>
+          <Field label="API Key" hint="For public sheets. Use an access token below for private sheets.">
+            <PasswordInput value={values.username || ''} onChange={handle('username')} placeholder="AIzaSy..." />
+          </Field>
+          <Field label="OAuth Access Token" hint="For private sheets. Takes priority over API Key. Stored encrypted.">
+            <PasswordInput value={values.password || ''} onChange={handle('password')} placeholder="ya29.a0..." />
+          </Field>
+        </>
+      )}
+
+      {/* ── Amazon S3 ──────────────────────────────────────────── */}
+      {isS3 && (
+        <>
+          <SectionDivider title="S3 / MinIO Connection" />
+          <Field label="Bucket *">
+            <input value={values.host || ''} onChange={handle('host')} placeholder="my-data-bucket" className={inputCls} />
+          </Field>
+          <Field label="Access Key ID *">
+            <input value={values.username || ''} onChange={handle('username')} placeholder="AKIAIOSFODNN7EXAMPLE" className={inputCls} />
+          </Field>
+          <Field label="Secret Access Key *" hint="Stored encrypted.">
+            <PasswordInput value={values.password || ''} onChange={handle('password')} placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" />
+          </Field>
+          <Field label="Region" hint="AWS region. Defaults to us-east-1.">
+            <input value={values.databaseName || ''} onChange={handle('databaseName')} placeholder="us-east-1" className={inputCls} />
+          </Field>
+          <Field label="Custom Endpoint URL" hint="For S3-compatible services like MinIO. Leave blank for AWS.">
+            <input value={values.port || ''} onChange={handle('port')} placeholder="http://localhost:9000" className={inputCls} />
+          </Field>
+        </>
+      )}
+
+      {/* ── HubSpot ────────────────────────────────────────────── */}
+      {isHubSpot && (
+        <>
+          <SectionDivider title="HubSpot Credentials" />
+          <Field label="Access Token *" hint="Private app access token (pat-...). Stored encrypted.">
+            <PasswordInput value={values.password || ''} onChange={handle('password')} placeholder="pat-na1-..." />
+          </Field>
+        </>
       )}
 
       {/* HTTP auth + custom headers — REST and webhook only */}

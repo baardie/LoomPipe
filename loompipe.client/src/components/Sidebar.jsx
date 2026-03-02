@@ -8,15 +8,17 @@ import {
   Settings,
   LogOut,
   Zap,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import RoleGuard from './auth/RoleGuard';
 
 const NAV_ITEMS = [
-  { key: 'dashboard',   label: 'Dashboard',   icon: Activity },
-  { key: 'pipelines',   label: 'Pipelines',   icon: Layers },
-  { key: 'connections', label: 'Connections', icon: Database },
-  { key: 'analytics',  label: 'Analytics',   icon: BarChart2 },
+  { key: 'dashboard',      label: 'Dashboard',      icon: Activity },
+  { key: 'pipelines',      label: 'Pipelines',      icon: Layers },
+  { key: 'connections',    label: 'Connections',    icon: Database },
+  { key: 'analytics',     label: 'Analytics',      icon: BarChart2 },
+  { key: 'documentation', label: 'Documentation',  icon: BookOpen },
 ];
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (

@@ -36,5 +36,12 @@ namespace LoomPipe.Core.Interfaces
         /// <param name="sampleSize">The number of records to read.</param>
         /// <returns>A collection of sample data records.</returns>
         Task<IEnumerable<object>> DryRunPreviewAsync(DataSourceConfig config, int sampleSize = 10);
+
+        /// <summary>
+        /// Lists available resources (endpoints, tables, collections, etc.) for connectors
+        /// that support multiple data streams. Returns an empty list by default.
+        /// </summary>
+        Task<IEnumerable<string>> ListResourcesAsync(DataSourceConfig config)
+            => Task.FromResult<IEnumerable<string>>(Array.Empty<string>());
     }
 }

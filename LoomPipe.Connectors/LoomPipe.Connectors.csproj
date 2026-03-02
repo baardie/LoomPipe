@@ -5,6 +5,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.15" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.18.7" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.5.10" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.27.0" />
+    <PackageReference Include="CassandraCSharpDriver" Version="3.22.0" />
+    <PackageReference Include="ClickHouse.Ado" Version="2.0.5" />
+    <PackageReference Include="ClickHouse.Client" Version="7.14.0" />
+    <PackageReference Include="Google.Cloud.Storage.V1" Version="4.14.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.3" />
     <!-- Relational DB drivers -->
@@ -19,6 +27,7 @@
     <PackageReference Include="Google.Cloud.BigQuery.V2" Version="3.11.0" />
     <!-- Vector DBs -->
     <PackageReference Include="Pinecone.Client" Version="4.0.2" />
+    <PackageReference Include="SSH.NET" Version="2025.1.0" />
     <!-- Milvus uses REST API via HttpClient — no NuGet package needed -->
   </ItemGroup>
 

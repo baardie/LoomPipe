@@ -2,7 +2,7 @@
 
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512bd4?logo=dotnet)](https://dotnet.microsoft.com/download)
-[![Tests](https://img.shields.io/badge/tests-23%20passing-brightgreen?logo=github)](#running-tests)
+[![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen?logo=github)](#running-tests)
 [![Buy Me a Coffee](https://img.shields.io/badge/donate-PayPal-blue?logo=paypal)](https://www.paypal.com/paypalme/baardie)
 
 ## Want help?
@@ -19,7 +19,7 @@ I can integrate custom connectors, add new features and help you out! Send me an
 | | |
 |---|---|
 | **Automap-First field mapping** | Exact and fuzzy (Levenshtein) matching auto-maps source→destination fields in one click |
-| **Expression transformations** | Inline expression language: literals, field references, concatenation, and built-in functions like `UPPER`, `LOWER`, `TRIM` |
+| **Expression transformations** | 48 built-in functions across 7 categories — string, numeric, type conversion, date/time, null/conditional, encoding, and hashing |
 | **Dry-run preview** | Preview the first N rows of a pipeline before committing a full run |
 | **Scheduled pipelines** | Cron expression scheduler — set any cron schedule and LoomPipe handles the rest |
 | **Incremental / delta loads** | Watermark-based incremental loading — only pull records modified since the last run using a configurable timestamp or integer column |
@@ -42,26 +42,58 @@ I can integrate custom connectors, add new features and help you out! Send me an
 
 ## Connectors
 
-### Sources
-| Connector | Type |
-|---|---|
-| CSV | File |
-| JSON | File / Inline |
-| REST API | HTTP |
-| SQL Server / PostgreSQL / MySQL / Oracle | Relational DB |
-| MongoDB | Document DB |
-| Neo4j | Graph DB |
-| Snowflake | Cloud DW |
-| BigQuery | Cloud DW |
-| Pinecone | Vector DB |
-| Milvus | Vector DB |
+LoomPipe ships with **130 source connectors** and **22 destination connectors** spanning databases, SaaS platforms, cloud storage, analytics, and more.
 
-### Destinations
-All relational, document, graph, cloud DW, and vector DB connectors above are also available as destinations, plus:
+### Sources by Category
 
-| Connector | Type |
+| Category | Connectors |
 |---|---|
-| Webhook | HTTP POST |
+| **Databases (17)** | SQL Server, PostgreSQL, MySQL, Oracle, MongoDB, Neo4j, Snowflake, BigQuery, Pinecone, Milvus, Elasticsearch, DynamoDB, Redis, Cassandra, ClickHouse, Databricks, Redshift |
+| **CRM & Sales (8)** | Salesforce, HubSpot, Pipedrive, Zoho CRM, Dynamics 365, Copper, Close, Freshsales |
+| **E-commerce (9)** | Stripe, Shopify, WooCommerce, BigCommerce, Magento, Shopify Plus, Salesforce Commerce Cloud, Square, PayPal |
+| **Marketing & Ads (8)** | Google Ads, Facebook Ads, LinkedIn Ads, TikTok Ads, Bing Ads, Microsoft Ads, Pinterest Ads, Snapchat Ads |
+| **Analytics (6)** | Google Analytics, Google Search Console, Mixpanel, Amplitude, Segment, Snowplow |
+| **Communication (4)** | Slack, Microsoft Teams, Twilio, Intercom |
+| **Project & Dev (9)** | Jira, GitHub, GitLab, Bitbucket, Asana, Monday.com, Linear, Notion, Confluence |
+| **Customer Support (3)** | Zendesk, Freshdesk, ServiceNow |
+| **Marketing Automation (10)** | Mailchimp, SendGrid, Klaviyo, Marketo, Pardot, Brevo, Salesforce Marketing Cloud, Salesloft, Outreach, Apollo.io |
+| **Finance & Billing (8)** | QuickBooks, Xero, Chargebee, Recurly, Zuora, NetSuite, Harvest, Toggl |
+| **Cloud Storage (7)** | Amazon S3, Google Cloud Storage, Azure Blob, SFTP, Google Drive, SharePoint, Google Sheets |
+| **Social Media (4)** | Instagram, YouTube, Twitter/X, Reddit |
+| **HR (5)** | Workday, BambooHR, Gusto, Greenhouse, Lever |
+| **Productivity (4)** | Airtable, Webflow, Typeform, SurveyMonkey |
+| **Monitoring (3)** | Datadog, PagerDuty, Sentry |
+| **Enterprise (3)** | SAP, Okta, Firebase |
+| **File Formats (4)** | CSV (upload up to 50 MB), JSON (inline paste or upload up to 100 MB), REST API, Webhook |
+
+### Destinations (22)
+
+| Connector | Type | Highlights |
+|---|---|---|
+| Webhook | HTTP POST | POST each record as JSON |
+| SQL Server | Relational DB | Batch insert with auto-table creation |
+| PostgreSQL | Relational DB | Batch insert with auto-table creation |
+| MySQL | Relational DB | Batch insert with auto-table creation |
+| Oracle | Relational DB | Batch insert with auto-table creation |
+| MongoDB | Document DB | Collection insert (single or batch) |
+| Neo4j | Graph DB | Cypher MERGE/CREATE |
+| Snowflake | Cloud DW | Batch INSERT |
+| BigQuery | Cloud DW | Streaming insert |
+| Pinecone | Vector DB | Upsert vectors with metadata |
+| Milvus | Vector DB | REST-based vector insert |
+| Shopify | SaaS API | Create records via Admin REST API |
+| Google Sheets | SaaS API | Append rows to spreadsheet |
+| Amazon S3 | Cloud Storage | Write CSV/JSON/JSONL to S3 or MinIO |
+| Google Cloud Storage | Cloud Storage | Write to GCS buckets |
+| Azure Blob Storage | Cloud Storage | Write to Azure containers |
+| SFTP | File Transfer | Upload files via SSH |
+| Slack | Messaging | Post messages to channels |
+| Microsoft Teams | Messaging | Post messages to channels |
+| Airtable | SaaS API | Create/update records |
+| WooCommerce | E-commerce | Create products/orders via REST API |
+| BigCommerce | E-commerce | Create records via REST API |
+
+> **Multi-resource connectors:** Shopify, Stripe, HubSpot, Google Sheets, and 80+ SaaS connectors support multiple endpoints within a single connector type. Select the specific resource via the `Parameters` field in the connection config.
 
 ---
 
@@ -73,7 +105,7 @@ LoomPipe follows Clean Architecture. Dependencies flow inward — only inner lay
 LoomPipe.Core           ← Entities, interfaces, DTOs (no external deps)
     ↑
 LoomPipe.Engine         ← Pipeline orchestration, automap, transformations
-LoomPipe.Connectors     ← ISourceReader / IDestinationWriter implementations
+LoomPipe.Connectors     ← 130+ source/destination connector implementations
 LoomPipe.Storage        ← EF Core repositories, DbContext, migrations
 LoomPipe.Services       ← Application services (connection profiles, email notifications)
 LoomPipe.Workers        ← Background scheduler (ConnectorWorker)
@@ -281,7 +313,7 @@ Revoke keys at any time from **Settings → API Keys**.
 
 ## Transformation Expression Language
 
-Transformations are defined one per line in the pipeline editor.
+Transformations are defined one per line in the pipeline editor. Functions can be nested: `Name = TRIM(UPPER(Name))`.
 
 | Syntax | Example | Result |
 |---|---|---|
@@ -289,8 +321,20 @@ Transformations are defined one per line in the pipeline editor.
 | Field copy | `FullName = Name` | Copies source field |
 | Concatenation | `DisplayName = First + ' ' + Last` | Joins values |
 | Function call | `Email = LOWER(Email)` | Applies built-in function |
+| Nested functions | `Name = TRIM(UPPER(Name))` | Composes multiple functions |
 
-**Built-in functions:** `UPPER`, `LOWER`, `TRIM`
+### Built-in Functions (48)
+
+| Category | Functions |
+|---|---|
+| **String** (20) | `UPPER`, `LOWER`, `TRIM`, `LTRIM`, `RTRIM`, `REPLACE`, `REGEX_REPLACE`, `REVERSE`, `LEFT`, `RIGHT`, `SUBSTRING`, `LEN`/`LENGTH`, `PAD_LEFT`, `PAD_RIGHT`, `SPLIT`, `NORMALIZE`, `TITLE_CASE`, `SLUG`, `CONCAT` |
+| **Numeric** (6) | `ROUND`, `CEIL`/`CEILING`, `FLOOR`, `ABS`, `MOD` |
+| **Type Conversion** (4) | `TO_INT`, `TO_FLOAT`, `TO_STRING`, `TO_BOOL` |
+| **Date/Time** (8) | `NOW`, `TODAY`, `FORMAT_DATE`, `ADD_DAYS`, `DATE_DIFF`, `YEAR`, `MONTH`, `DAY` |
+| **Null/Conditional** (3) | `COALESCE`, `DEFAULT`, `NULLIF` |
+| **Encoding/Hashing** (6) | `MD5`, `SHA256`, `BASE64_ENCODE`, `BASE64_DECODE`, `URL_ENCODE`, `URL_DECODE` |
+
+See the in-app **Documentation** page for full syntax details and examples.
 
 ---
 
@@ -347,7 +391,7 @@ Then update `Program.cs` to use the PostgreSQL migration assembly if needed, or 
 ## Running Tests
 
 ```bash
-# Engine (TransformationParser, AutomapHelper, PipelineEngine) — 12 tests
+# Engine (TransformationParser, AutomapHelper, PipelineEngine) — 82 tests
 dotnet test tests/LoomPipe.Engine.Tests
 
 # Connectors (CsvSourceReader, WebhookDestinationWriter) — 4 tests
@@ -360,7 +404,7 @@ dotnet test tests/LoomPipe.Core.Tests
 dotnet test tests/LoomPipe.Server.Tests
 ```
 
-All 23 tests use an in-memory database and a test auth handler — no real database or credentials required.
+All 93 tests use an in-memory database and a test auth handler — no real database or credentials required.
 
 ---
 
@@ -374,8 +418,8 @@ LoomPipe/
 │   ├── Interfaces/        # ISourceReader, IDestinationWriter, IEmailNotificationService, INotificationRepository, …
 │   └── Settings/          # EmailSettings
 ├── LoomPipe.Engine/       # PipelineEngine, TransformationParser, AutomapHelper
-├── LoomPipe.Connectors/   # CSV, JSON, REST, SQL (with watermark support), MongoDB, Neo4j,
-│                          # Snowflake, BigQuery, Pinecone, Milvus, Webhook
+├── LoomPipe.Connectors/   # 130 source readers + 22 destination writers
+│                          # Databases, SaaS, cloud storage, analytics, and more
 ├── LoomPipe.Storage/
 │   ├── LoomPipeDbContext.cs
 │   ├── Migrations/        # SQLite-compatible EF Core migrations
@@ -394,7 +438,8 @@ LoomPipe/
 ├── loompipe.client/       # React + Tailwind frontend
 │   └── src/
 │       ├── pages/         # DashboardPage, PipelinesPage, PipelineDetailPage, ConnectionsPage,
-│       │                  # ProfileDetailPage, UsersPage, AnalyticsPage, SettingsPage, LoginPage
+│       │                  # ProfileDetailPage, UsersPage, AnalyticsPage, SettingsPage,
+│       │                  # DocumentationPage, LoginPage
 │       ├── components/    # Sidebar, Topbar, NotificationCenter, ConfirmDialog, ErrorBoundary,
 │       │                  # PipelineForm, PipelineList, ConnectionProfileDialog,
 │       │                  # loom/ (LoomCanvas, LoomEditor, LoomPanel, LoomSettings),

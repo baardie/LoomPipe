@@ -1,25 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Database, Network, GitMerge, Snowflake, Cloud, Cpu, HelpCircle, CheckCircle2, XCircle, Play, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Database, HelpCircle, CheckCircle2, XCircle, Play, Pencil, Trash2 } from 'lucide-react';
 import ConnectionProfileDialog from '../components/connections/ConnectionProfileDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RoleGuard from '../components/auth/RoleGuard';
 import { useAuth } from '../contexts/AuthContext';
-
-const PROVIDER_META = {
-  sqlserver:  { label: 'SQL Server',   icon: Database,  color: '#c8373a' },
-  postgresql: { label: 'PostgreSQL',   icon: Database,  color: '#336791' },
-  mysql:      { label: 'MySQL',        icon: Database,  color: '#00758f' },
-  oracle:     { label: 'Oracle',       icon: Database,  color: '#f00000' },
-  mongodb:    { label: 'MongoDB',      icon: Network,   color: '#4caf50' },
-  neo4j:      { label: 'Neo4j',        icon: GitMerge,  color: '#008cc1' },
-  snowflake:  { label: 'Snowflake',    icon: Snowflake, color: '#29b5e8' },
-  bigquery:   { label: 'BigQuery',     icon: Cloud,     color: '#4285f4' },
-  pinecone:   { label: 'Pinecone',     icon: Cpu,       color: '#5a57fb' },
-  milvus:     { label: 'Milvus',       icon: Cpu,       color: '#00a1ea' },
-  csv:        { label: 'CSV File',     icon: Database,  color: '#888' },
-  rest:       { label: 'REST API',     icon: Network,   color: '#888' },
-  webhook:    { label: 'Webhook',      icon: Network,   color: '#888' },
-};
+import { getConnectorMeta } from '../data/connectorRegistry';
 
 const TestBadge = ({ profile }) => {
   if (!profile.lastTestedAt)
@@ -124,7 +109,7 @@ const ConnectionsPage = ({ onProfileClick }) => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {profiles.map(p => {
-            const meta = PROVIDER_META[p.provider] ?? { label: p.provider, icon: Database, color: '#888' };
+            const meta = getConnectorMeta(p.provider);
             const Icon = meta.icon;
             return (
               <div key={p.id} onClick={() => onProfileClick && onProfileClick(p.id)}

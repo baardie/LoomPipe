@@ -2,40 +2,10 @@ import { useState, useRef } from 'react';
 import { Upload, FileCheck, X, Loader2, Copy, Braces, Minimize2, Trash2, Check, Plus, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ConnectionProfileSelect from '../connections/ConnectionProfileSelect';
+import ConnectorPickerButton from '../connections/ConnectorPickerButton';
 import FieldMappingForm from '../pipeline/FieldMappingForm';
 import TransformationForm from '../pipeline/TransformationForm';
-
-const DB_PROVIDERS = ['sqlserver', 'postgresql', 'mysql', 'oracle', 'mongodb', 'neo4j', 'snowflake', 'bigquery', 'pinecone', 'milvus'];
-
-const SOURCE_TYPES = [
-  { value: 'csv',        label: 'CSV File' },
-  { value: 'json',       label: 'JSON' },
-  { value: 'rest',       label: 'REST API' },
-  { value: 'sqlserver',  label: 'SQL Server' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql',      label: 'MySQL / MariaDB' },
-  { value: 'oracle',     label: 'Oracle Database' },
-  { value: 'mongodb',    label: 'MongoDB' },
-  { value: 'neo4j',      label: 'Neo4j' },
-  { value: 'snowflake',  label: 'Snowflake' },
-  { value: 'bigquery',   label: 'Google BigQuery' },
-  { value: 'pinecone',   label: 'Pinecone (Vector DB)' },
-  { value: 'milvus',     label: 'Milvus (Vector DB)' },
-];
-
-const DESTINATION_TYPES = [
-  { value: 'webhook',    label: 'Webhook (HTTP POST)' },
-  { value: 'sqlserver',  label: 'SQL Server' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql',      label: 'MySQL / MariaDB' },
-  { value: 'oracle',     label: 'Oracle Database' },
-  { value: 'mongodb',    label: 'MongoDB' },
-  { value: 'neo4j',      label: 'Neo4j' },
-  { value: 'snowflake',  label: 'Snowflake' },
-  { value: 'bigquery',   label: 'Google BigQuery' },
-  { value: 'pinecone',   label: 'Pinecone (Vector DB)' },
-  { value: 'milvus',     label: 'Milvus (Vector DB)' },
-];
+import { DB_PROVIDERS } from '../../data/connectorRegistry';
 
 const TABLE_LABEL = { mongodb: 'Collection', neo4j: 'Node Label', pinecone: 'Index Name', milvus: 'Collection' };
 
@@ -398,10 +368,13 @@ const SourcePanel = (props) => {
       <PanelHeader title="Source Configuration" />
       <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
         <Field label="Source Type">
-          <select value={sourceType} onChange={e => setSourceType(e.target.value)} className={inputCls}>
-            <option value="">— select type —</option>
-            {SOURCE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <ConnectorPickerButton
+            value={sourceType}
+            onChange={setSourceType}
+            mode="source"
+            placeholder="— select source —"
+            title="Select Source"
+          />
         </Field>
 
         {isDb ? (
@@ -501,10 +474,13 @@ const DestinationPanel = (props) => {
       <PanelHeader title="Destination Configuration" />
       <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
         <Field label="Destination Type">
-          <select value={destinationType} onChange={e => setDestinationType(e.target.value)} className={inputCls}>
-            <option value="">— select type —</option>
-            {DESTINATION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <ConnectorPickerButton
+            value={destinationType}
+            onChange={setDestinationType}
+            mode="destination"
+            placeholder="— select destination —"
+            title="Select Destination"
+          />
         </Field>
 
         {isDb ? (
