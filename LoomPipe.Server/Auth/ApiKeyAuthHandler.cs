@@ -50,9 +50,8 @@ namespace LoomPipe.Server.Auth
             if (apiKey.ExpiresAt.HasValue && apiKey.ExpiresAt.Value < DateTime.UtcNow)
                 return AuthenticateResult.Fail("API key has expired.");
 
-            // Fire-and-forget: update LastUsedAt without blocking the request
             apiKey.LastUsedAt = DateTime.UtcNow;
-            _ = _repo.UpdateAsync(apiKey);
+            await _repo.UpdateAsync(apiKey);
 
             var user = apiKey.AppUser!;
             var claims = new[]

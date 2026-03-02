@@ -45,8 +45,12 @@ namespace LoomPipe.Storage
             modelBuilder.Entity<AppUser>()
                 .HasIndex(u => u.Username).IsUnique();
 
-            modelBuilder.Entity<UserConnectionPermission>()
-                .HasKey(p => new { p.UserId, p.ConnectionProfileId });
+            modelBuilder.Entity<UserConnectionPermission>(entity =>
+            {
+                entity.HasKey(p => new { p.UserId, p.ConnectionProfileId });
+                entity.HasIndex(p => p.UserId);
+                entity.HasIndex(p => p.ConnectionProfileId);
+            });
 
             modelBuilder.Entity<PipelineRunLog>()
                 .HasOne(r => r.Pipeline)

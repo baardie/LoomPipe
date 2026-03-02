@@ -200,11 +200,12 @@ The UI is served at `http://localhost:5173` and proxies API calls to the backend
 
 ### Default credentials
 
-On first startup, a default admin account is created:
+On first startup, a default admin account (`admin`) is created with a **randomly generated password**. Check the server logs for the password:
 
-| Username | Password |
-|---|---|
-| `admin` | `Admin123!` |
+```
+warn: LoomPipe.Server[0]
+      Default admin account created. Username: admin  Password: <random>  — change this immediately!
+```
 
 **Change this immediately in production.**
 

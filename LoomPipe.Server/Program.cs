@@ -14,9 +14,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 // ── CORS ─────────────────────────────────────────────────────────────────────
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCors", policy =>
@@ -24,6 +27,18 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
+    });
+    options.AddPolicy("ProdCors", policy =>
+    {
+        if (allowedOrigins is { Length: > 0 })
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        else
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
     });
 });
 
@@ -60,7 +75,13 @@ else
 
 // ── JWT Authentication ───────────────────────────────────────────────────────
 var jwtSection = builder.Configuration.GetSection("Jwt");
-var secretKey  = jwtSection["SecretKey"] ?? "CHANGE_ME_32_CHARS_MIN_SECRET_KEY!!";
+var secretKey  = jwtSection["SecretKey"] ?? string.Empty;
+if (builder.Environment.IsEnvironment("Testing") && secretKey.Length < 32)
+    secretKey = "test-only-secret-key-that-is-at-least-32-characters-long!!";
+else if (secretKey.Length < 32)
+    throw new InvalidOperationException(
+        "JWT SecretKey must be at least 32 characters. " +
+        "Set it via environment variable Jwt__SecretKey or in appsettings.json.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -110,8 +131,21 @@ builder.Services.AddScoped<LoomPipe.Storage.Interfaces.ISystemSettingsRepository
 builder.Services.AddHostedService<ConnectorWorker>();
 builder.Services.AddHttpClient();
 
+// ── Rate Limiting ────────────────────────────────────────────────────────────
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("auth", cfg =>
+    {
+        cfg.PermitLimit = 10;
+        cfg.Window      = TimeSpan.FromMinutes(1);
+        cfg.QueueLimit  = 0;
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen();
 
 
 var app = builder.Build();
@@ -152,28 +186,41 @@ if (!app.Environment.IsEnvironment("Testing"))
         logger.LogError(ex, "Database migration failed.");
     }
 
-    // Seed a default admin account if the user table is empty
+    // Seed a default admin account if the user table is empty.
+    // Generate a random password and log it once so the operator can change it.
     var userRepo = scope.ServiceProvider.GetRequiredService<IAppUserRepository>();
     if (!await userRepo.AnyAsync())
     {
+        var initialPassword = Convert.ToBase64String(
+            System.Security.Cryptography.RandomNumberGenerator.GetBytes(18)); // 24-char random password
         await userRepo.AddAsync(new AppUser
         {
             Username     = "admin",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialPassword),
             Role         = "Admin",
             CreatedAt    = DateTime.UtcNow,
             IsActive     = true,
         });
+        logger.LogWarning("Default admin account created. Username: admin  Password: {Password}  — change this immediately!", initialPassword);
     }
 }
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsProduction())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
-// In production, configure CORS more restrictively
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseCors("ProdCors");
+}
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

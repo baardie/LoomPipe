@@ -28,7 +28,7 @@ namespace LoomPipe.Server.Controllers
             if (ext != ".csv")
                 return BadRequest(new { error = "Only .csv files are accepted." });
 
-            var uploadDir = Path.Combine(_env.ContentRootPath, "csv-uploads");
+            var uploadDir = Path.Combine(_env.ContentRootPath, "App_Data", "csv-uploads");
             Directory.CreateDirectory(uploadDir);
 
             // Prefix with timestamp to avoid collisions

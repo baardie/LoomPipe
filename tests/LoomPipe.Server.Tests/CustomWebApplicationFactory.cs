@@ -1,5 +1,6 @@
 using LoomPipe.Workers;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -31,6 +32,12 @@ namespace LoomPipe.Server.Tests
                 // Replace JWT auth with a test scheme that always authenticates as Admin
                 services.AddAuthentication("Test")
                     .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
+
+                // Override the default authorization policy to accept the "Test" scheme
+                services.AddAuthorization(o =>
+                    o.DefaultPolicy = new AuthorizationPolicyBuilder("Test")
+                        .RequireAuthenticatedUser()
+                        .Build());
             });
         }
     }

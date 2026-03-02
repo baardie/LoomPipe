@@ -1,0 +1,124 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  NODE_VERSION: "22"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: loompipe.client/package-lock.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # ── .NET build ──────────────────────────────────────────────
+      - name: Restore .NET dependencies
+        run: dotnet restore LoomPipe.Server/LoomPipe.Server.csproj
+
+      - name: Restore test dependencies
+        run: |
+          dotnet restore tests/LoomPipe.Core.Tests/LoomPipe.Core.Tests.csproj
+          dotnet restore tests/LoomPipe.Engine.Tests/LoomPipe.Engine.Tests.csproj
+          dotnet restore tests/LoomPipe.Connectors.Tests/LoomPipe.Connectors.Tests.csproj
+          dotnet restore tests/LoomPipe.Server.Tests/LoomPipe.Server.Tests.csproj
+
+      - name: Build .NET solution
+        run: |
+          dotnet build LoomPipe.Server/LoomPipe.Server.csproj -c Release --no-restore
+          dotnet build tests/LoomPipe.Core.Tests/LoomPipe.Core.Tests.csproj -c Release --no-restore
+          dotnet build tests/LoomPipe.Engine.Tests/LoomPipe.Engine.Tests.csproj -c Release --no-restore
+          dotnet build tests/LoomPipe.Connectors.Tests/LoomPipe.Connectors.Tests.csproj -c Release --no-restore
+          dotnet build tests/LoomPipe.Server.Tests/LoomPipe.Server.Tests.csproj -c Release --no-restore
+
+      # ── Frontend build ──────────────────────────────────────────
+      - name: Install frontend dependencies
+        working-directory: loompipe.client
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: loompipe.client
+        run: npm run build
+
+      # ── Tests ───────────────────────────────────────────────────
+      - name: Run tests
+        run: |
+          dotnet test tests/LoomPipe.Core.Tests/LoomPipe.Core.Tests.csproj -c Release --no-build --verbosity normal
+          dotnet test tests/LoomPipe.Engine.Tests/LoomPipe.Engine.Tests.csproj -c Release --no-build --verbosity normal
+          dotnet test tests/LoomPipe.Connectors.Tests/LoomPipe.Connectors.Tests.csproj -c Release --no-build --verbosity normal
+          dotnet test tests/LoomPipe.Server.Tests/LoomPipe.Server.Tests.csproj -c Release --no-build --verbosity normal
+
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

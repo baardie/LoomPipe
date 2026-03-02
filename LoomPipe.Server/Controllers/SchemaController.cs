@@ -50,9 +50,9 @@ namespace LoomPipe.Server.Controllers
                 var schema = await reader.DiscoverSchemaAsync(config);
                 return Ok(schema);
             }
-            catch (System.Exception ex)
+            catch (System.Exception)
             {
-                return StatusCode(500, ex.Message);
+                return StatusCode(500, "Schema discovery failed. Check server logs for details.");
             }
         }
     }

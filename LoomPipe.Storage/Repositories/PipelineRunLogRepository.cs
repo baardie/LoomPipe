@@ -42,36 +42,42 @@ namespace LoomPipe.Storage.Repositories
 
         public async Task<PipelineStatsDto> GetStatsAsync(int pipelineId)
         {
-            var logs = await _db.PipelineRunLogs
-                .Where(r => r.PipelineId == pipelineId)
+            var query = _db.PipelineRunLogs.Where(r => r.PipelineId == pipelineId);
+
+            var totalRuns    = await query.CountAsync();
+            var successCount = await query.CountAsync(r => r.Status == "Success");
+            var failCount    = await query.CountAsync(r => r.Status == "Failed");
+            var lastRunAt    = totalRuns > 0 ? await query.MaxAsync(r => (DateTime?)r.StartedAt) : null;
+
+            // Pull only the two timestamp columns for finished runs to compute avg duration
+            var durations = await query
+                .Where(r => r.FinishedAt.HasValue)
+                .Select(r => new { r.StartedAt, r.FinishedAt })
                 .ToListAsync();
 
-            var finished = logs
-                .Where(r => r.FinishedAt.HasValue)
-                .ToList();
-
-            double? avgMs = finished.Count > 0
-                ? finished.Average(r => (r.FinishedAt!.Value - r.StartedAt).TotalMilliseconds)
+            double? avgMs = durations.Count > 0
+                ? durations.Average(r => (r.FinishedAt!.Value - r.StartedAt).TotalMilliseconds)
                 : null;
 
             return new PipelineStatsDto
             {
-                TotalRuns    = logs.Count,
-                SuccessCount = logs.Count(r => r.Status == "Success"),
-                FailCount    = logs.Count(r => r.Status == "Failed"),
-                LastRunAt    = logs.Count > 0 ? logs.Max(r => r.StartedAt) : null,
+                TotalRuns     = totalRuns,
+                SuccessCount  = successCount,
+                FailCount     = failCount,
+                LastRunAt     = lastRunAt,
                 AvgDurationMs = avgMs,
             };
         }
 
         public async Task<AnalyticsSummaryDto> GetSummaryAsync(int totalPipelines)
         {
-            var now = DateTime.UtcNow;
-            var all = await _db.PipelineRunLogs.ToListAsync();
-            int total    = all.Count;
-            int success  = all.Count(r => r.Status == "Success");
-            int last24h  = all.Count(r => r.StartedAt >= now.AddHours(-24));
-            int last7d   = all.Count(r => r.StartedAt >= now.AddDays(-7));
+            var now     = DateTime.UtcNow;
+            var query   = _db.PipelineRunLogs.AsQueryable();
+
+            int total   = await query.CountAsync();
+            int success = await query.CountAsync(r => r.Status == "Success");
+            int last24h = await query.CountAsync(r => r.StartedAt >= now.AddHours(-24));
+            int last7d  = await query.CountAsync(r => r.StartedAt >= now.AddDays(-7));
 
             return new AnalyticsSummaryDto
             {
@@ -108,15 +114,23 @@ namespace LoomPipe.Storage.Repositories
 
         public async Task<Dictionary<int, PipelineRunLog>> GetLatestRunPerPipelineAsync()
         {
-            // For each pipeline, grab only the single most-recent log entry.
-            // Grouping in-memory keeps this simple; swap to a window-function query
-            // if the logs table grows very large.
-            var latestPerPipeline = await _db.PipelineRunLogs
-                .GroupBy(r => r.PipelineId)
-                .Select(g => g.OrderByDescending(r => r.StartedAt).First())
+            // Correlated subquery: for each distinct pipeline, find the run with the max StartedAt.
+            // This translates to efficient SQL across all providers.
+            var pipelineIds = await _db.PipelineRunLogs
+                .Select(r => r.PipelineId)
+                .Distinct()
                 .ToListAsync();
 
-            return latestPerPipeline.ToDictionary(r => r.PipelineId);
+            var latest = new Dictionary<int, PipelineRunLog>(pipelineIds.Count);
+            foreach (var pid in pipelineIds)
+            {
+                var run = await _db.PipelineRunLogs
+                    .Where(r => r.PipelineId == pid)
+                    .OrderByDescending(r => r.StartedAt)
+                    .FirstOrDefaultAsync();
+                if (run != null) latest[pid] = run;
+            }
+            return latest;
         }
     }
 }

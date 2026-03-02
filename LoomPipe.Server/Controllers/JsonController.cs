@@ -47,7 +47,7 @@ namespace LoomPipe.Server.Controllers
                 return BadRequest(new { error = $"Invalid JSON: {jex.Message}" });
             }
 
-            var uploadDir = Path.Combine(_env.ContentRootPath, "json-uploads");
+            var uploadDir = Path.Combine(_env.ContentRootPath, "App_Data", "json-uploads");
             Directory.CreateDirectory(uploadDir);
 
             var safeName = $"{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Path.GetFileName(file.FileName)}";
